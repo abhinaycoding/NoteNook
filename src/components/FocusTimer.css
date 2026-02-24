@@ -1,0 +1,96 @@
+/* ── FocusTimer compact widget styles ── */
+
+.timer-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.timer-presets {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.timer-preset-btn {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.timer-preset-btn:not(:disabled):hover {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.timer-preset-btn.active {
+  background: var(--text-primary);
+  color: var(--bg-card);
+  border-color: var(--text-primary);
+}
+
+.timer-preset-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Large serif time digits */
+.timer-digits {
+  font-family: var(--font-serif);
+  font-size: clamp(3.5rem, 7vw, 5.5rem);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.timer-colon {
+  opacity: 0.35;
+  margin: 0 0.05em;
+}
+
+/* Thin progress bar */
+.timer-bar-track {
+  height: 2px;
+  background: var(--border);
+  width: 100%;
+}
+
+.timer-bar-fill {
+  height: 100%;
+  transition: width 0.9s linear;
+}
+
+/* Completion message */
+.timer-done-msg {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+/* Controls */
+.timer-controls {
+  display: flex;
+  gap: 1.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+
+.timer-btn {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--text-secondary);
+  transition: color 0.15s;
+}
+
+.timer-btn:hover { color: var(--text-primary); font-style: italic; }
+
+.timer-btn-primary {
+  color: var(--text-primary);
+}

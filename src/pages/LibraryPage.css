@@ -1,0 +1,256 @@
+.library-container {
+  display: flex;
+  height: calc(100vh - 90px);
+  border-top: 1px solid var(--text-primary);
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .library-container {
+    flex-direction: column;
+    height: auto;
+    min-height: calc(100vh - 90px);
+    overflow: visible;
+  }
+  .library-directory {
+    width: 100%;
+    min-width: unset;
+    border-right: none;
+    border-bottom: 1px solid var(--text-primary);
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+  .library-editor-pane {
+    min-height: 60vh;
+  }
+  .note-editor-wrapper {
+    padding: 1.5rem 1.25rem 3rem;
+  }
+  .editor-title-input { font-size: 2rem; }
+}
+
+
+.library-directory {
+  width: 320px;
+  min-width: 320px;
+  border-right: 1px solid var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-color);
+  overflow-y: auto;
+}
+
+.directory-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  transition: all var(--transition-fast);
+}
+
+.btn-icon:hover {
+  background-color: var(--text-primary);
+  color: var(--bg-card);
+}
+
+.directory-search {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.search-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--text-primary);
+  padding: 0.5rem 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.directory-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.folder-btn {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-secondary);
+}
+
+.folder-btn:hover, .folder-btn.active {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.directory-list {
+  flex-grow: 1;
+  padding: 1rem 0;
+}
+
+.note-row {
+  display: flex;
+  align-items: stretch;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid transparent;
+  transition: background-color var(--transition-fast);
+}
+
+.note-row:hover {
+  background-color: rgba(0,0,0,0.02);
+}
+
+.note-row.active {
+  background-color: var(--bg-card);
+  border-left: 3px solid var(--primary);
+  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+}
+
+.note-row-content {
+  flex-grow: 1;
+}
+
+.note-row-title {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  margin-bottom: 0.2rem;
+}
+
+.note-row-meta {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.note-delete-btn {
+  opacity: 0;
+  padding: 0 0.5rem;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.note-row:hover .note-delete-btn {
+  opacity: 1;
+}
+
+.note-delete-btn:hover {
+  color: var(--danger);
+}
+
+/* Editor Pane */
+.library-editor-pane {
+  flex-grow: 1;
+  background-color: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.empty-editor-state {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  opacity: 0.5;
+}
+
+/* Note Editor Component Styling */
+.note-editor-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 3rem 10% 5rem;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.editor-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--text-primary);
+}
+
+.editor-title-input {
+  width: 100%;
+  font-family: var(--font-serif);
+  font-size: 3rem;
+  line-height: 1.1;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  margin-bottom: 1rem;
+}
+
+.editor-meta-bar {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.editor-folder-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  outline: none;
+  width: 150px;
+}
+
+.save-status {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.editor-textarea {
+  flex-grow: 1;
+  width: 100%;
+  background: transparent;
+  border: none;
+  resize: none;
+  outline: none;
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+.editor-textarea::placeholder {
+  color: var(--text-secondary);
+  font-style: italic;
+  opacity: 0.5;
+}

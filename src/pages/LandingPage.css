@@ -1,0 +1,164 @@
+/* Editorial Layout System */
+
+.editorial-main {
+  padding-top: 4rem;
+}
+
+.border-ink {
+  border-color: var(--text-primary);
+}
+
+.border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+.border-t { border-top-width: 1px; border-top-style: solid; }
+.border-y { border-top-width: 1px; border-top-style: solid; border-bottom-width: 1px; border-bottom-style: solid;}
+.border-r { border-right-width: 1px; border-right-style: solid; }
+
+.pt-12 { padding-top: 3rem; }
+.pt-20 { padding-top: 5rem; }
+.pb-4 { padding-bottom: 1rem; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.py-20 { padding-top: 5rem; padding-bottom: 5rem; }
+.pr-8 { padding-right: 2rem; }
+.pl-8 { padding-left: 2rem; }
+.px-8 { padding-left: 2rem; padding-right: 2rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.max-w-2xl { max-width: 42rem; }
+.max-w-3xl { max-width: 48rem; }
+.max-w-xs { max-width: 20rem; }
+
+.text-serif-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.editorial-lead {
+  text-align: center;
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .hidden-mobile { display: none; }
+  .text-8xl { font-size: clamp(2.5rem, 10vw, 4rem); }
+  .text-7xl { font-size: clamp(2rem, 8vw, 3.5rem); }
+  .text-6xl { font-size: clamp(2rem, 7vw, 3rem); }
+  .text-5xl { font-size: clamp(1.5rem, 5vw, 2.5rem); }
+  .pt-20 { padding-top: 3rem; }
+  .py-20 { padding-top: 3rem; padding-bottom: 3rem; }
+  .pr-8, .pl-8, .px-8 { padding-right: 0; padding-left: 0; }
+  .editorial-lead { text-align: left; }
+}
+
+@media (max-width: 480px) {
+  .container { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .max-w-2xl, .max-w-3xl { max-width: 100%; }
+}
+
+/* Feature Grid */
+.editorial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  min-height: 400px;
+}
+
+.ed-card {
+  display: flex;
+}
+
+@media (max-width: 900px) {
+  .editorial-grid {
+    grid-template-columns: 1fr;
+  }
+  .ed-card {
+    border-right: none;
+    border-bottom: 1px solid var(--text-primary);
+    padding: 3rem 0;
+  }
+  .ed-card:last-child { border-bottom: none; }
+}
+
+/* Sketched CSS Art */
+.ed-sketch {
+  width: 100%;
+  height: 150px;
+  position: relative;
+}
+
+.sketch-lines {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 19px,
+    var(--border) 20px
+  );
+  opacity: 0.7;
+}
+
+.sketch-clock {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 1px solid var(--text-primary);
+  position: relative;
+}
+
+.sketch-clock::after {
+  content: '';
+  position: absolute;
+  top: 10%; left: 50%;
+  width: 1px; height: 40%;
+  background: var(--primary);
+  transform-origin: bottom;
+  transform: rotate(45deg);
+}
+
+.sketch-books {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.sketch-books::before,
+.sketch-books::after {
+  content: '';
+  display: block;
+  border: 1px solid var(--text-primary);
+  border-bottom: none;
+}
+.sketch-books::before { width: 30px; height: 80px; }
+.sketch-books::after { width: 40px; height: 110px; background: rgba(0,0,0,0.05); }
+
+/* Pricing Ticket */
+.pricing-ticket {
+  border: 1px solid var(--text-primary);
+  display: inline-flex;
+  position: relative;
+  width: 400px;
+  max-width: 100%;
+  background-color: var(--bg-color);
+}
+
+.ticket-body {
+  padding: 3rem 2rem;
+  width: 100%;
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 10px 10px;
+}
+
+.ticket-edge {
+  width: 20px;
+  background-image: radial-gradient(circle at center, transparent 8px, var(--bg-color) 9px);
+  background-size: 20px 20px;
+  background-position: center;
+  border-right: 1px dashed var(--text-primary);
+}
+
+.ticket-right {
+  border-right: none;
+  border-left: 1px dashed var(--text-primary);
+}

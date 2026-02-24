@@ -1,0 +1,251 @@
+.resume-main {
+  display: flex;
+  height: calc(100vh - 90px);
+  overflow: hidden;
+}
+
+.resume-editor {
+  width: 320px;
+  min-width: 320px;
+  border-right: 1px solid var(--text-primary);
+  overflow-y: auto;
+  padding: 1.5rem;
+  background: var(--bg-color);
+}
+
+.editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.editor-field-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0.4rem 0;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.editor-divider {
+  border: none;
+  border-top: 1px dashed var(--border);
+  margin: 1.5rem 0;
+}
+
+.add-section-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.editor-section-block {
+  border: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.editor-section-block.active {
+  border-color: var(--text-primary);
+}
+
+.editor-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  background: var(--bg-card);
+}
+
+.section-type-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.entry-block {
+  padding: 0.75rem;
+  background: var(--bg-color);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.entry-field-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0.3rem 0;
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+/* Preview */
+.resume-preview {
+  flex-grow: 1;
+  overflow-y: auto;
+  background: #e8e4dc;
+  display: flex;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+}
+
+.resume-doc {
+  background: white;
+  width: 210mm;
+  min-height: 297mm;
+  padding: 15mm 18mm;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: #1a1a1a;
+}
+
+.resume-header-block {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.resume-name {
+  font-size: 2.2rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.2rem;
+}
+
+.resume-tagline {
+  font-size: 0.9rem;
+  color: #707070;
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.resume-contact {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  color: #555;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.resume-contact .sep { color: #aaa; }
+
+.resume-divider {
+  border: none;
+  border-top: 2px solid #1a1a1a;
+  margin: 0.75rem 0 1.5rem;
+}
+
+.resume-section {
+  margin-bottom: 1.25rem;
+}
+
+.resume-section-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  color: #555;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.resume-entry {
+  margin-bottom: 0.75rem;
+  page-break-inside: avoid;
+}
+
+.resume-entry-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.entry-title { font-size: 1rem; }
+
+.entry-date {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.7rem;
+  color: #707070;
+}
+
+.entry-subtitle {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  color: #707070;
+  font-style: italic;
+}
+
+.entry-desc {
+  font-size: 0.9rem;
+  margin-top: 0.2rem;
+}
+
+/* Responsive Layout */
+@media (max-width: 900px) {
+  .resume-main {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+  }
+  .resume-editor {
+    width: 100%;
+    min-width: unset;
+    border-right: none;
+    border-bottom: 1px solid var(--text-primary);
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  .resume-preview {
+    padding: 1.5rem 0.75rem;
+  }
+  .resume-doc {
+    width: 100%;
+    min-height: auto;
+    padding: 8mm;
+    font-size: 10pt;
+  }
+  .resume-name { font-size: 1.6rem; }
+}
+
+@media (max-width: 600px) {
+  .resume-editor { padding: 1rem; }
+  .resume-preview { padding: 1rem 0.5rem; }
+  .resume-name { font-size: 1.4rem; }
+}
+
+/* Print styles */
+@media print {
+  .no-print { display: none !important; }
+  .resume-preview {
+    background: white;
+    padding: 0;
+  }
+  .resume-doc {
+    box-shadow: none;
+    margin: 0;
+    width: 100%;
+    min-height: auto;
+  }
+  .resume-main {
+    height: auto;
+    overflow: visible;
+  }
+}
+
+.text-danger { color: var(--danger); }
