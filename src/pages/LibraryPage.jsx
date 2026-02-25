@@ -1,38 +1,58 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import NoteEditor from '../components/NoteEditor'
+import ProGate from '../components/ProGate'
+import { useToast } from '../contexts/ToastContext'
+import { useAuth } from '../contexts/AuthContext'
+import { usePlan } from '../contexts/PlanContext'
 import './LibraryPage.css'
 
-const LibraryPage = ({ onNavigate, user }) => {
+const LibraryPage = ({ onNavigate }) => {
+  const { user, session } = useAuth()
+  const { isPro } = usePlan()
+  const toast = useToast()
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeNoteId, setActiveNoteId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFolder, setActiveFolder] = useState('All')
   
+  const hasReachedLimit = !isPro && notes.length >= 10
+  
   // Fetch notes on mount
   useEffect(() => {
-    fetchNotes()
-  }, [])
-
-  const fetchNotes = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
+    let isMounted = true
+    if (!user || !session) return
+    
+    const fetchNotes = async () => {
+      try {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?user_id=eq.${user.id}&select=*&order=updated_at.desc`
+        const res = await fetch(url, { headers: getHeaders() })
         
-      if (error) throw error
-      if (data) setNotes(data)
-    } catch (error) {
-      console.error('Error fetching notes:', error.message)
-    } finally {
-      setLoading(false)
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
+        const data = await res.json()
+        
+        if (isMounted) setNotes(data || [])
+      } catch (error) {
+        console.error('Error fetching notes:', error.message)
+      } finally {
+        if (isMounted) setLoading(false)
+      }
     }
-  }
+    
+    fetchNotes()
+    return () => { isMounted = false }
+  }, [user, session])
+
+  const getHeaders = (prefer = 'return=representation') => ({
+    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${session?.access_token}`,
+    'Content-Type': 'application/json',
+    ...(prefer && { 'Prefer': prefer })
+  })
 
   const handleCreateNote = async () => {
+    if (!session) return
     try {
       const newNote = {
         user_id: user.id,
@@ -41,24 +61,30 @@ const LibraryPage = ({ onNavigate, user }) => {
         folder: activeFolder === 'All' ? 'Uncategorized' : activeFolder
       }
       
-      const { data, error } = await supabase
-        .from('notes')
-        .insert([newNote])
-        .select()
-        .single()
-        
-      if (error) throw error
-      if (data) {
-        setNotes([data, ...notes])
-        setActiveNoteId(data.id)
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(newNote)
+      })
+      
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const inserted = await res.json()
+      
+      if (inserted && inserted.length > 0) {
+        setNotes([inserted[0], ...notes])
+        setActiveNoteId(inserted[0].id)
+        toast('New manuscript created.', 'success')
       }
     } catch (error) {
+      toast('Failed to create note.', 'error')
       console.error('Error creating note:', error.message)
     }
   }
 
   const handleDeleteNote = async (id) => {
     if (!window.confirm('Erase this manuscript permanently?')) return;
+    if (!session) return;
     
     // Optimistic UI
     const previousNotes = [...notes];
@@ -66,9 +92,15 @@ const LibraryPage = ({ onNavigate, user }) => {
     if (activeNoteId === id) setActiveNoteId(null)
     
     try {
-      const { error } = await supabase.from('notes').delete().eq('id', id)
-      if (error) throw error
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?id=eq.${id}`
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: getHeaders('return=minimal')
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      toast('Manuscript erased from the Archives.', 'info')
     } catch (error) {
+      toast('Failed to delete note.', 'error')
       console.error('Error deleting note:', error.message)
       setNotes(previousNotes) // Revert
     }
@@ -116,7 +148,13 @@ const LibraryPage = ({ onNavigate, user }) => {
         <aside className="library-directory">
           <div className="directory-header">
             <h2 className="text-xl font-serif">The Archives</h2>
-            <button onClick={handleCreateNote} className="btn-icon" aria-label="New Note">
+            <button 
+              onClick={handleCreateNote} 
+              className={`btn-icon ${hasReachedLimit ? 'opacity-50 cursor-not-allowed' : ''}`} 
+              disabled={hasReachedLimit}
+              aria-label="New Note"
+              title={hasReachedLimit ? "Limit reached" : "New Note"}
+            >
               +
             </button>
           </div>
@@ -186,8 +224,14 @@ const LibraryPage = ({ onNavigate, user }) => {
             />
           ) : (
             <div className="empty-editor-state">
-              <h3 className="text-3xl font-serif text-muted">Select a manuscript to begin drafting.</h3>
-              <p className="text-sm uppercase tracking-widest text-muted mt-4">Or inscribe a new one.</p>
+              {hasReachedLimit ? (
+                <ProGate feature="manuscripts" inline onNavigatePricing={onNavigate} />
+              ) : (
+                <>
+                  <h3 className="text-3xl font-serif text-muted">Select a manuscript to begin drafting.</h3>
+                  <p className="text-sm uppercase tracking-widest text-muted mt-4">Or inscribe a new one.</p>
+                </>
+              )}
             </div>
           )}
         </section>

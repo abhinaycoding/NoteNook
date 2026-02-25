@@ -1,0 +1,42 @@
+.pro-gate-full {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  width: 100vw;
+  padding: 2rem;
+}
+
+.pro-gate-card {
+  border: 1px solid var(--ink);
+  padding: 3rem;
+  background-color: var(--cream);
+  max-width: 28rem;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.pro-gate-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: var(--primary);
+}
+
+.pro-gate-inline {
+  border: 1px dashed var(--ink);
+  background-color: rgba(204, 75, 44, 0.05);
+  padding: 1.5rem;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.pro-gate-inline .pro-lock-icon {
+  font-size: 1.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+

@@ -92,31 +92,75 @@ const LandingPage = ({ onNavigate }) => {
             </div>
           </section>
 
-          {/* Subscribe / Pricing block */}
+          {/* Pricing section */}
           <section id="subscribe" className="mt-20">
             <div className="container">
               <div className="py-20 border-y border-ink">
-                <div className="flex-col items-center text-center max-w-3xl mx-auto">
-                  <h2 className="text-4xl font-serif mb-6">Gain Access.</h2>
-                  <p className="text-lg text-muted mb-12">
-                    A single subscription for all instruments. No intricate tiers.
-                  </p>
 
-                  <div className="pricing-ticket">
-                    <div className="ticket-edge ticket-left"></div>
-                    
-                    <div className="ticket-body">
-                      <h3 className="uppercase tracking-widest text-sm mb-4">The Scholar Pass</h3>
-                      <div className="text-6xl font-serif font-bold mb-8">$4 <span className="text-xl">USD</span></div>
-                      <button className="btn-secondary w-full" onClick={() => onNavigate('auth')}>Procure Pass</button>
-                    </div>
-                    
-                    <div className="ticket-edge ticket-right"></div>
-                  </div>
+                <div className="lp-pricing-header">
+                  <h2 className="text-6xl font-serif">Gain Access.</h2>
+                  <p className="text-sm uppercase tracking-widest text-muted max-w-xs text-right hidden-mobile">
+                    Every instrument. One canvas. One decision.
+                  </p>
                 </div>
+
+                <div className="lp-pricing-grid">
+
+                  {/* Free */}
+                  <div className="lp-price-card">
+                    <div className="lp-price-top">
+                      <div className="lp-price-ed-no font-serif text-accent">01.</div>
+                      <div className="lp-price-tier">The Canvas — Free</div>
+                      <div className="lp-price-amount font-serif">₹0<span className="lp-price-period"> / forever</span></div>
+                    </div>
+                    <ul className="lp-feature-list">
+                      <li>✓ Focus Timer — 25, 45, 60 min</li>
+                      <li>✓ The Ledger — up to 20 tasks</li>
+                      <li>✓ The Library — up to 10 notes</li>
+                      <li>✓ Goals tracker — up to 5 goals</li>
+                      <li>✓ Analytics — 7-day chart</li>
+                      <li>✓ Achievement badges</li>
+                      <li className="lp-feature-locked">✕ Exam Planner</li>
+                      <li className="lp-feature-locked">✕ Resume Builder</li>
+                      <li className="lp-feature-locked">✕ Custom Dashboard Layout</li>
+                    </ul>
+                    <button className="lp-price-btn lp-price-btn--free" onClick={() => onNavigate('auth')}>
+                      Begin Free
+                    </button>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="lp-price-divider" />
+
+                  {/* Pro */}
+                  <div className="lp-price-card lp-price-card--pro">
+                    <div className="lp-popular-tag">Scholar's Choice</div>
+                    <div className="lp-price-top">
+                      <div className="lp-price-ed-no font-serif" style={{ color: 'var(--primary)' }}>02.</div>
+                      <div className="lp-price-tier">The Scholar Pass — Pro</div>
+                      <div className="lp-price-amount font-serif">₹99<span className="lp-price-period"> / month</span></div>
+                    </div>
+                    <ul className="lp-feature-list">
+                      <li>✓ Everything in Free</li>
+                      <li className="lp-feature-pro">✓ Exam Planner + Countdown</li>
+                      <li className="lp-feature-pro">✓ Resume Builder + PDF Export</li>
+                      <li className="lp-feature-pro">✓ Unlimited Tasks, Notes & Goals</li>
+                      <li className="lp-feature-pro">✓ Custom Dashboard Layout</li>
+                      <li className="lp-feature-pro">✓ Full Analytics + Streaks</li>
+                      <li className="lp-feature-pro">✓ Priority support</li>
+                    </ul>
+                    <button className="lp-price-btn lp-price-btn--pro" onClick={() => onNavigate('auth')}>
+                      Procure the Pass →
+                    </button>
+                    <div className="lp-price-note">UPI · Cards · Net Banking via Razorpay</div>
+                  </div>
+
+                </div>
+
               </div>
             </div>
           </section>
+
 
         </main>
 

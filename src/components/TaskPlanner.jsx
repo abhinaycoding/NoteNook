@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { usePlan } from '../contexts/PlanContext'
+import { useNotifications } from '../contexts/NotificationContext'
+import ProGate from './ProGate'
 import '../pages/Dashboard.css'
 
 const PRIORITIES = ['Today', 'Tomorrow', 'This Week', 'Later']
 
 const TaskPlanner = () => {
   const { user } = useAuth()
+  const { isPro } = usePlan()
+  const toast = useToast()
+  const { addNotification } = useNotifications()
   const [tasks, setTasks] = useState([])
+  const hasReachedLimit = !isPro && tasks.length >= 20
   const [loading, setLoading] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -51,20 +59,27 @@ const TaskPlanner = () => {
       .then(({ data, error }) => {
         if (error) {
           setTasks(prev => prev.filter(t => t.id !== tempId))
+          toast('Failed to add task.', 'error')
           return
         }
         setTasks(prev => prev.map(t => t.id === tempId ? data : t))
+        toast('Task added to the Ledger.', 'success')
       })
   }
 
   const toggleTask = (id, current) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !current } : t))
     supabase.from('tasks').update({ completed: !current }).eq('id', id)
+    if (!current) {
+      toast('Task marked complete.', 'success')
+      addNotification('Task Complete', 'Excellent work! One step closer to your goals.', 'success')
+    }
   }
 
   const deleteTask = (id) => {
     setTasks(prev => prev.filter(t => t.id !== id))
     supabase.from('tasks').delete().eq('id', id)
+    toast('Task removed from the Ledger.', 'info')
   }
 
   const startEdit = (task) => { setEditingId(task.id); setEditTitle(task.title) }
@@ -75,6 +90,7 @@ const TaskPlanner = () => {
     if (!title) return
     setTasks(prev => prev.map(t => t.id === id ? { ...t, title } : t))
     supabase.from('tasks').update({ title }).eq('id', id)
+    toast('Task updated.', 'success')
   }
 
   const incomplete = tasks.filter(t => !t.completed)
@@ -84,7 +100,11 @@ const TaskPlanner = () => {
     <div className="ledger-container">
 
       {/* ── Add Task — always at top ── */}
-      {isAdding ? (
+      {hasReachedLimit ? (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <ProGate feature="ledger tasks" inline onNavigatePricing={() => window.location.href = '/pricing'} />
+        </div>
+      ) : isAdding ? (
         <div className="add-task-form">
           <input
             type="text"

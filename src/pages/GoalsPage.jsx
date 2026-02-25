@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+import { usePlan } from '../contexts/PlanContext'
+import { useNotifications } from '../contexts/NotificationContext'
+import ProGate from '../components/ProGate'
 import './GoalsPage.css'
 
 const BADGES = [
@@ -13,74 +17,182 @@ const BADGES = [
 ]
 
 const GoalsPage = ({ onNavigate }) => {
-  const { user } = useAuth()
+  const { user, session } = useAuth()
+  const { isPro } = usePlan()
+  const toast = useToast()
+  const { addNotification } = useNotifications()
   const [goals, setGoals] = useState([])
+  
+  const hasReachedLimit = !isPro && goals.length >= 5
   const [newGoal, setNewGoal] = useState('')
   const [newTarget, setNewTarget] = useState('')
   const [stats, setStats] = useState({ sessions: 0, tasks: 0, hours: 0 })
   const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (user) { fetchGoals(); fetchStats() }
+    let isMounted = true
+
+    const loadData = async () => {
+      if (!user || !session) return
+      
+      try {
+        const url = import.meta.env.VITE_SUPABASE_URL
+        const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+        
+        const headers = {
+          'apikey': key,
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        }
+        
+        const tasksRes = await fetch(`${url}/rest/v1/tasks?user_id=eq.${user.id}&select=*&order=created_at.asc`, { headers })
+        if (!tasksRes.ok) throw new Error(`Tasks HTTP error! status: ${tasksRes.status}`)
+        const allTasks = await tasksRes.json()
+        
+        if (isMounted) {
+          const goalsData = (allTasks || []).filter(t => t.due_date === 'goal')
+          setGoals(goalsData)
+        }
+        
+        const sessionsRes = await fetch(`${url}/rest/v1/sessions?user_id=eq.${user.id}&select=duration_seconds`, { headers })
+        if (!sessionsRes.ok) throw new Error(`Sessions HTTP error! status: ${sessionsRes.status}`)
+        const sessionsData = await sessionsRes.json()
+
+        if (isMounted) {
+          const completedTasks = (allTasks || []).filter(t => t.completed === true)
+          const hours = (sessionsData || []).reduce((a, s) => a + (s.duration_seconds || 0), 0) / 3600
+          setStats({ 
+            sessions: (sessionsData || []).length, 
+            tasks: completedTasks.length, 
+            hours 
+          })
+          setErrorMsg('')
+          setLoading(false)
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error("Goals Fetch Error:", err)
+          setErrorMsg('Failed to fetch data: ' + (err.message || String(err)))
+          setLoading(false)
+        }
+      }
+    }
+
+    // 100ms delay helps bypass the StrictMode immediate double-unmount race condition
+    const timer = setTimeout(() => {
+      loadData()
+    }, 100)
+
+    return () => {
+      isMounted = false
+      clearTimeout(timer)
+    }
   }, [user])
 
-  const fetchGoals = async () => {
-    try {
-      const { data } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('due_date', 'goal')
-        .order('created_at', { ascending: true })
-      if (data) setGoals(data)
-    } catch (err) {
-      console.error(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchStats = async () => {
-    try {
-      const { data: sessions } = await supabase.from('sessions').select('duration_seconds').eq('user_id', user.id)
-      const { data: tasks } = await supabase.from('tasks').select('id').eq('user_id', user.id).eq('completed', true)
-      const totalHours = (sessions || []).reduce((a, s) => a + s.duration_seconds, 0) / 3600
-      setStats({ sessions: (sessions || []).length, tasks: (tasks || []).length, hours: totalHours })
-    } catch (err) {
-      console.error(err.message)
+  const getDirectHeaders = () => {
+    return {
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
     }
   }
 
   const addGoal = async () => {
-    if (!newGoal.trim()) return
+    if (!newGoal.trim() || !session) return
     try {
-      const { data, error } = await supabase.from('tasks').insert([{
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/tasks`
+      const payload = {
         user_id: user.id,
         title: newGoal.trim(),
         due_date: 'goal',
         priority: newTarget || '0',
         completed: false
-      }]).select().single()
-      if (error) throw error
-      if (data) setGoals(prev => [...prev, data])
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: getDirectHeaders(),
+        body: JSON.stringify(payload)
+      })
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      
+      const inserted = await res.json()
+      if (inserted && inserted.length > 0) {
+        setGoals(prev => [...prev, inserted[0]])
+      }
       setNewGoal('')
       setNewTarget('')
+      toast('Goal committed to the canvas.', 'success')
     } catch (err) {
-      console.error(err.message)
+      toast('Failed to add goal.', 'error')
+      console.error(err)
     }
   }
 
+  // Track previously unlocked badges to trigger notifications on new ones
+  const unlockedBadges = BADGES.filter(b => b.check(stats.sessions, stats.tasks, stats.hours))
+  const prevBadgesCount = useRef(0)
+
+  useEffect(() => {
+    // Only fire notifications if we've already loaded and the count actually increased
+    if (!loading && unlockedBadges.length > prevBadgesCount.current && prevBadgesCount.current > 0) {
+      const newBadges = unlockedBadges.slice(prevBadgesCount.current)
+      newBadges.forEach(badge => {
+        addNotification(
+          'Milestone Unlocked!',
+          `You earned the "${badge.label}" badge: ${badge.desc}`,
+          'success'
+        )
+      })
+    }
+    prevBadgesCount.current = unlockedBadges.length
+  }, [unlockedBadges.length, loading, addNotification])
+
   const toggleGoal = async (id, current) => {
+    if (!session) return
     setGoals(prev => prev.map(g => g.id === id ? { ...g, completed: !current } : g))
-    await supabase.from('tasks').update({ completed: !current }).eq('id', id)
+    
+    try {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/tasks?id=eq.${id}`
+      const headers = getDirectHeaders()
+      // For PATCH, we must omit the return=representation prefer header or use return=minimal
+      headers['Prefer'] = 'return=minimal'
+
+      await fetch(url, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({ completed: !current })
+      })
+      if (!current) {
+        toast('Goal achieved! Well done.', 'success')
+        addNotification('Goal Achieved', 'You completed a monthly goal. Keep up the momentum!', 'success')
+      }
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const deleteGoal = async (id) => {
+    if (!session) return
     setGoals(prev => prev.filter(g => g.id !== id))
-    await supabase.from('tasks').delete().eq('id', id)
+    
+    try {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/tasks?id=eq.${id}`
+      await fetch(url, {
+        method: 'DELETE',
+        headers: getDirectHeaders()
+      })
+      toast('Goal removed.', 'info')
+    } catch (err) {
+      console.error(err)
+    }
   }
 
-  const unlockedBadges = BADGES.filter(b => b.check(stats.sessions, stats.tasks, stats.hours))
+
 
   return (
     <div className="canvas-layout">
@@ -101,24 +213,34 @@ const GoalsPage = ({ onNavigate }) => {
           <div>
             <h3 className="section-label">Monthly Goals</h3>
 
-            <div className="add-goal-row">
-              <input
-                type="text"
-                placeholder="Set a new goal..."
-                value={newGoal}
-                onChange={e => setNewGoal(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addGoal()}
-                className="goal-input"
-              />
-              <input
-                type="text"
-                placeholder="Target (e.g. 20hrs)"
-                value={newTarget}
-                onChange={e => setNewTarget(e.target.value)}
-                className="goal-target-input"
-              />
-              <button onClick={addGoal} className="btn-icon">+</button>
-            </div>
+            {hasReachedLimit ? (
+              <ProGate feature="goals" inline onNavigatePricing={onNavigate} />
+            ) : (
+              <div className="add-goal-row">
+                <input
+                  type="text"
+                  placeholder="Set a new goal..."
+                  value={newGoal}
+                  onChange={e => setNewGoal(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addGoal()}
+                  className="goal-input"
+                />
+                <input
+                  type="text"
+                  placeholder="Target (e.g. 20hrs)"
+                  value={newTarget}
+                  onChange={e => setNewTarget(e.target.value)}
+                  className="goal-target-input"
+                />
+                <button onClick={addGoal} className="btn-icon">+</button>
+              </div>
+            )}
+
+            {errorMsg && (
+              <div className="p-4 mb-4 bg-red-900/20 border border-red-500/50 text-red-200 text-sm rounded">
+                <strong>Debug Error:</strong> {errorMsg}
+              </div>
+            )}
 
             {loading ? (
               <p className="text-xs text-muted italic">Loading goals...</p>

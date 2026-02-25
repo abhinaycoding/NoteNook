@@ -1,11 +1,12 @@
-/* ── FocusTimer compact widget styles ── */
+/* ── FocusTimer Component ── */
 
 .timer-widget {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1.5rem;
 }
 
+/* ── Preset Chips ── */
 .timer-presets {
   display: flex;
   gap: 0.5rem;
@@ -14,83 +15,241 @@
 .timer-preset-btn {
   font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   font-weight: 700;
-  padding: 0.25rem 0.65rem;
+  font-family: var(--font-sans);
+  padding: 0.3rem 0.85rem;
   border: 1px solid var(--border);
+  background: transparent;
   color: var(--text-secondary);
-  transition: all 0.15s;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.timer-preset-btn:not(:disabled):hover {
+.timer-preset-btn:hover:not(:disabled) {
   border-color: var(--text-primary);
   color: var(--text-primary);
 }
 
 .timer-preset-btn.active {
   background: var(--text-primary);
-  color: var(--bg-card);
+  color: var(--bg-color);
   border-color: var(--text-primary);
 }
 
 .timer-preset-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
-/* Large serif time digits */
+/* ── Main Display ── */
+.timer-display {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+/* Arc ring */
+.timer-arc-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 100px;
+  height: 100px;
+}
+
+.timer-arc-svg {
+  width: 100px;
+  height: 100px;
+  transform: rotate(-90deg);
+}
+
+.timer-arc-track {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+.timer-arc-fill {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  stroke-linecap: butt;
+  transition: stroke-dashoffset 1s linear, stroke 0.4s ease;
+}
+
+.timer-arc-fill--done {
+  stroke: var(--accent);
+}
+
+/* State label inside arc */
+.timer-arc-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* ── Big Digits ── */
+.timer-digits-block {
+  flex: 1;
+}
+
 .timer-digits {
   font-family: var(--font-serif);
   font-size: clamp(3.5rem, 7vw, 5.5rem);
   line-height: 1;
-  letter-spacing: -0.02em;
   color: var(--text-primary);
+  letter-spacing: -0.03em;
+  transition: color 0.3s ease;
 }
 
-.timer-colon {
-  opacity: 0.35;
-  margin: 0 0.05em;
+.timer-digits--running {
+  color: var(--primary);
 }
 
-/* Thin progress bar */
-.timer-bar-track {
-  height: 2px;
-  background: var(--border);
-  width: 100%;
-}
-
-.timer-bar-fill {
-  height: 100%;
-  transition: width 0.9s linear;
-}
-
-/* Completion message */
-.timer-done-msg {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+.timer-digits--done {
   color: var(--accent);
 }
 
-/* Controls */
+.timer-colon {
+  animation: blink 1s step-start infinite;
+}
+
+.timer-colon--paused {
+  opacity: 0.3;
+  animation: none;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
+}
+
+.timer-session-info {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-secondary);
+  margin-top: 0.4rem;
+  font-family: var(--font-sans);
+}
+
+/* ── Progress bar ── */
+.timer-bar-track {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.timer-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transition: width 1s linear;
+}
+
+/* Running shimmer on bar */
+.timer-bar-fill--running::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.6), transparent);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-20px); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(20px); opacity: 0; }
+}
+
+/* ── Done message ── */
+.timer-done-msg {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  font-weight: 700;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  text-align: center;
+}
+
+/* ── Controls ── */
 .timer-controls {
   display: flex;
-  gap: 1.5rem;
-  border-top: 1px solid var(--border);
-  padding-top: 0.75rem;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .timer-btn {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   font-weight: 700;
+  font-family: var(--font-sans);
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border);
+  background: transparent;
   color: var(--text-secondary);
-  transition: color 0.15s;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
-.timer-btn:hover { color: var(--text-primary); font-style: italic; }
-
-.timer-btn-primary {
+.timer-btn:hover {
+  border-color: var(--text-primary);
   color: var(--text-primary);
+}
+
+/* Primary — ink fill with rust swipe */
+.timer-btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: var(--text-primary);
+  color: var(--bg-color);
+  border-color: var(--text-primary);
+  padding: 0.55rem 1.75rem;
+  letter-spacing: 0.15em;
+}
+
+.timer-btn-primary:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(204, 75, 44, 0.35);
+}
+
+/* Pause — pulsing red */
+.timer-btn-pause {
+  border-color: var(--primary);
+  color: var(--primary);
+  padding: 0.55rem 1.75rem;
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(204, 75, 44, 0.4); }
+  50% { box-shadow: 0 0 0 5px rgba(204, 75, 44, 0); }
+}
+
+.timer-btn-pause:hover {
+  background: var(--primary);
+  color: #fff;
+  animation: none;
+  box-shadow: none;
 }

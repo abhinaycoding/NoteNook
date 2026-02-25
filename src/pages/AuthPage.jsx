@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import Navigation from '../components/Navigation'
+import { useAuth } from '../contexts/AuthContext'
 
 const AuthPage = ({ onNavigate }) => {
   const [isLogin, setIsLogin] = useState(true)
@@ -11,6 +11,7 @@ const AuthPage = ({ onNavigate }) => {
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const { setLocalSession } = useAuth()
 
   const handleAuth = async (e) => {
     e.preventDefault()
@@ -18,39 +19,70 @@ const AuthPage = ({ onNavigate }) => {
     setErrorMsg('')
     setSuccessMsg('')
 
+    console.log('[Auth] Starting native auth process. isLogin:', isLogin)
+
     try {
+      const url = import.meta.env.VITE_SUPABASE_URL
+      const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        console.log('[Auth] Calling native login endpoint...')
+        const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: {
+            'apikey': key,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
         })
-        if (error) throw error
-        // App.jsx will automatically see the session change and we can handle routing there, 
-        // or just navigate directly here.
+        
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error_description || data.msg || data.message || 'Login failed')
+        
+        console.log('[Auth] Login complete. Setting local session directly...')
+        await setLocalSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+          expires_at: data.expires_at || Math.floor(Date.now() / 1000) + data.expires_in
+        }, data.user)
+        
+        console.log('[Auth] Navigating to dashboard...')
         onNavigate('dashboard')
       } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-            }
-          }
+        console.log('[Auth] Calling native signup endpoint...')
+        const res = await fetch(`${url}/auth/v1/signup`, {
+          method: 'POST',
+          headers: {
+            'apikey': key,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ 
+            email, 
+            password,
+            data: { full_name: fullName }
+          })
         })
-        if (error) throw error
+        
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.msg || data.message || 'Signup failed')
+        
         setSuccessMsg('Registration successful. Please check your email to verify your account or proceed to login.')
-        if(!error) {
-           // If email confirmation is off, they are logged in immediately.
-           supabase.auth.getSession().then(({data}) => {
-             if(data.session) onNavigate('dashboard')
-           })
+        
+        if (data.session) {
+          await setLocalSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+            expires_at: data.session.expires_at
+          }, data.user)
+          onNavigate('dashboard')
         }
       }
     } catch (error) {
-      setErrorMsg(error.message)
+      console.error('[Auth] Exception caught:', error)
+      setErrorMsg(error?.message || String(error) || 'Unknown error occurred')
     } finally {
       setLoading(false)
+      console.log('[Auth] Process finished, loading set to false.')
     }
   }
 
@@ -61,10 +93,23 @@ const AuthPage = ({ onNavigate }) => {
     setSuccessMsg('')
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/auth', // Ensure they come back here
+      const url = import.meta.env.VITE_SUPABASE_URL
+      const key = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+      const res = await fetch(`${url}/auth/v1/recover`, {
+        method: 'POST',
+        headers: {
+          'apikey': key,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
       })
-      if (error) throw error
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.msg || data.message || 'Failed to send reset email')
+      }
+      
       setSuccessMsg('Password reset instructions sent. Please check your email to create a new password.')
     } catch (error) {
       setErrorMsg(error.message)
@@ -99,8 +144,8 @@ const AuthPage = ({ onNavigate }) => {
             </p>
 
             {errorMsg && (
-              <div className="mb-6 p-4 border border-ink text-primary text-sm font-medium">
-                {errorMsg}
+              <div className="mb-6 p-4 border border-red-500/50 bg-red-900/10 text-red-400 text-sm font-medium">
+                <strong>Auth Error:</strong> {errorMsg}
               </div>
             )}
             
@@ -186,7 +231,7 @@ const AuthPage = ({ onNavigate }) => {
                 <button 
                   type="submit" 
                   disabled={loading}
-                  className="btn-primary w-full mt-8 justify-center py-4 text-sm"
+                  className="btn-primary w-full mt-8 justify-center py-4 text-sm cursor-pointer hover:bg-primary transition-colors"
                 >
                   {loading ? 'Authenticating...' : (isLogin ? 'Log In' : 'Sign Up')}
                 </button>

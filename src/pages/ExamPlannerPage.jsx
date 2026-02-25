@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import './ExamPlannerPage.css'
 
 const COMMON_EXAMS = ['JEE Main', 'JEE Advanced', 'NEET', 'UPSC', 'CAT', 'GATE', 'CUET', 'Custom']
 
 const ExamPlannerPage = ({ onNavigate }) => {
   const { user } = useAuth()
+  const toast = useToast()
   const [examDate, setExamDate] = useState('')
   const [examName, setExamName] = useState('JEE Main')
   const [customExam, setCustomExam] = useState('')
@@ -93,7 +95,9 @@ const ExamPlannerPage = ({ onNavigate }) => {
       if (error) throw error
       if (data) setTopics(prev => [...prev, data])
       setNewTopic('')
+      toast(`${newTopicSubject} topic added.`, 'success')
     } catch (err) {
+      toast('Failed to add topic.', 'error')
       console.error('Error adding topic:', err.message)
     } finally {
       setSaving(false)
@@ -103,11 +107,13 @@ const ExamPlannerPage = ({ onNavigate }) => {
   const toggleTopic = async (id, current) => {
     setTopics(prev => prev.map(t => t.id === id ? { ...t, completed: !current } : t))
     await supabase.from('tasks').update({ completed: !current }).eq('id', id)
+    if (!current) toast('Topic covered. Keep going!', 'success')
   }
 
   const deleteTopic = async (id) => {
     setTopics(prev => prev.filter(t => t.id !== id))
     await supabase.from('tasks').delete().eq('id', id)
+    toast('Topic removed.', 'info')
   }
 
   const completedCount = topics.filter(t => t.completed).length

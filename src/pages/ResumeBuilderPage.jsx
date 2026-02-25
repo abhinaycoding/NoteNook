@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import './ResumeBuilderPage.css'
 
 const SECTION_TYPES = ['Education', 'Experience', 'Skills', 'Projects', 'Achievements', 'Certifications']
@@ -15,6 +16,7 @@ const defaultResume = {
 
 const ResumeBuilderPage = ({ onNavigate }) => {
   const { user } = useAuth()
+  const toast = useToast()
   const [resume, setResume] = useState({
     ...defaultResume,
     name: user?.user_metadata?.full_name || '',
@@ -32,11 +34,13 @@ const ResumeBuilderPage = ({ onNavigate }) => {
     const newSec = { id: Date.now(), type: newSectionType, entries: [] }
     setResume(prev => ({ ...prev, sections: [...prev.sections, newSec] }))
     setActiveSection(newSec.id)
+    toast(`${newSectionType} section added.`, 'success')
   }
 
   const removeSection = (id) => {
     setResume(prev => ({ ...prev, sections: prev.sections.filter(s => s.id !== id) }))
     if (activeSection === id) setActiveSection(null)
+    toast('Section removed.', 'info')
   }
 
   const addEntry = (sectionId) => {
@@ -79,6 +83,7 @@ const ResumeBuilderPage = ({ onNavigate }) => {
 
   const handlePrint = () => {
     setPrinting(true)
+    toast('Preparing your resume for export…', 'info', 2000)
     setTimeout(() => {
       window.print()
       setPrinting(false)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 const NoteEditor = ({ note, onUpdate, user }) => {
   const [title, setTitle] = useState(note.title || '')
@@ -8,6 +9,7 @@ const NoteEditor = ({ note, onUpdate, user }) => {
   const [saveStatus, setSaveStatus] = useState('Saved')
   const [wordCount, setWordCount] = useState(0)
 
+  const { session } = useAuth()
   const saveTimeoutRef = useRef(null)
 
   // Sync state when switching notes
@@ -24,18 +26,28 @@ const NoteEditor = ({ note, onUpdate, user }) => {
     setWordCount(words.length)
   }
 
+  const getHeaders = () => ({
+    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${session?.access_token}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=minimal'
+  })
+
   const debounceSave = (updatedFields) => {
+    if (!session) return
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     setSaveStatus('Saving...')
     onUpdate(note.id, updatedFields)
 
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        const { error } = await supabase
-          .from('notes')
-          .update({ ...updatedFields, updated_at: new Date().toISOString() })
-          .eq('id', note.id)
-        if (error) throw error
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?id=eq.${note.id}`
+        const res = await fetch(url, {
+          method: 'PATCH',
+          headers: getHeaders(),
+          body: JSON.stringify({ ...updatedFields, updated_at: new Date().toISOString() })
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         setSaveStatus('✓ Saved')
       } catch (err) {
         console.error('Auto-save error:', err.message)
@@ -52,6 +64,8 @@ const NoteEditor = ({ note, onUpdate, user }) => {
   const handleContentChange = (e) => {
     setContent(e.target.value)
     countWords(e.target.value)
+    // NOTE: This triggers debounceSave with { content } but lacks title/folder.
+    // Our PATCH correctly only updates the passed fields because we use spread.
     debounceSave({ content: e.target.value })
   }
 
