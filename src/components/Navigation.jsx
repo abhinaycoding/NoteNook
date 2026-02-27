@@ -52,7 +52,7 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
         {!isAuthPage && (
           <div className="nav-actions">
             <button className="text-sm font-medium uppercase tracking-wide hover:italic" onClick={handleLogin}>
-              {user ? 'Dashboard' : 'Log In'}
+              {user ? 'dashboard' : 'Log In'}
             </button>
             <button className="btn-primary ml-4" onClick={handleBegin}>
               {user ? 'Open App' : 'Begin'}

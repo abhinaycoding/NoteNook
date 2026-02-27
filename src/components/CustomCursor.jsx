@@ -5,8 +5,8 @@ const CustomCursor = () => {
     const cursor = document.getElementById('custom-cursor');
     
     // Hide default cursor early
-    const appLevel = document.getElementById('root');
-    if(appLevel) appLevel.style.cursor = 'none';
+    const root = document.getElementById('root');
+    if(root) root.style.cursor = 'none';
 
     const moveCursor = (e) => {
       if(cursor) {
@@ -34,6 +34,7 @@ const CustomCursor = () => {
       window.removeEventListener('mousemove', moveCursor);
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseOut);
+      if(root) root.style.cursor = 'auto';
     }
   }, [])
 

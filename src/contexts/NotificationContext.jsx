@@ -30,7 +30,13 @@ export const NotificationProvider = ({ children }) => {
     try {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notifications?user_id=eq.${user.id}&select=*&order=created_at.desc`;
       const res = await fetch(url, { headers: getHeaders() });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.warn('Notifications table not found in Supabase. Run the SQL script mentioned in the chat.');
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       
       const data = await res.json();
       setNotifications(data || []);

@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isPasswordResetFlow, setIsPasswordResetFlow] = useState(false)
 
   const fetchProfile = async (userId, token) => {
     try {
@@ -43,6 +44,7 @@ export const AuthProvider = ({ children }) => {
       setSession(null)
       setUser(null)
       setProfile(null)
+      setIsPasswordResetFlow(false)
       await supabase.auth.signOut()
     }
   }
@@ -107,6 +109,11 @@ export const AuthProvider = ({ children }) => {
           await fetchProfile(u.id, newSession.access_token)
         }
       }
+
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('[AuthContext] Password recovery event detected')
+        setIsPasswordResetFlow(true)
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -121,7 +128,9 @@ export const AuthProvider = ({ children }) => {
     user,
     profile,
     signOut,
-    setLocalSession
+    setLocalSession,
+    isPasswordResetFlow,
+    setIsPasswordResetFlow
   }
 
   if (loading) {

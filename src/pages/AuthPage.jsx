@@ -2,10 +2,11 @@ import React, { useState } from 'react'
 import Navigation from '../components/Navigation'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import Loader from '../components/Loader'
 
 const AuthPage = ({ onNavigate }) => {
   const [isLogin, setIsLogin] = useState(true)
-  const [isResetPassword, setIsResetPassword] = useState(false)
+  const [showLoader, setShowLoader] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
@@ -13,6 +14,23 @@ const AuthPage = ({ onNavigate }) => {
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const { setLocalSession } = useAuth()
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        }
+      })
+      if (error) throw error
+    } catch (error) {
+      setErrorMsg(error.message)
+      setLoading(false)
+    }
+  }
 
   const handleAuth = async (e) => {
     e.preventDefault()
@@ -40,15 +58,17 @@ const AuthPage = ({ onNavigate }) => {
         const data = await res.json()
         if (!res.ok) throw new Error(data.error_description || data.msg || data.message || 'Login failed')
         
-        console.log('[Auth] Login complete. Setting local session directly...')
-        await setLocalSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
-          expires_at: data.expires_at || Math.floor(Date.now() / 1000) + data.expires_in
-        }, data.user)
-        
-        console.log('[Auth] Navigating to dashboard...')
-        onNavigate('dashboard')
+        console.log('[Auth] Showing loader before navigating to dashboard...')
+        setShowLoader(true)
+
+        setTimeout(async () => {
+          console.log('[Auth] Login complete. Setting local session directly...')
+          await setLocalSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+            expires_at: data.expires_at || Math.floor(Date.now() / 1000) + data.expires_in
+          }, data.user)
+        }, 2500)
       } else {
         console.log('[Auth] Calling Supabase signUp...')
         const { data, error } = await supabase.auth.signUp({
@@ -62,16 +82,11 @@ const AuthPage = ({ onNavigate }) => {
 
         if (error) throw error
 
-        // Supabase returns a user with identities=[] if already registered
         if (data?.user?.identities?.length === 0) {
           throw new Error('An account with this email already exists. Please log in instead.')
         }
 
-        // Always ask user to verify email — do NOT auto-login on signup
-        // Even if Supabase returns a session (email confirm disabled),
-        // we force the user to verify first for security.
         if (data.session) {
-          // Sign out the auto-created session so user can't bypass verification
           await supabase.auth.signOut()
         }
 
@@ -79,7 +94,6 @@ const AuthPage = ({ onNavigate }) => {
         setEmail('')
         setPassword('')
         setFullName('')
-        // Switch to login form after a brief delay
         setTimeout(() => setIsLogin(true), 100)
       }
     } catch (error) {
@@ -91,50 +105,10 @@ const AuthPage = ({ onNavigate }) => {
     }
   }
 
-  const handleResetPassword = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setErrorMsg('')
-    setSuccessMsg('')
-
-    try {
-      const url = import.meta.env.VITE_SUPABASE_URL
-      const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-      const res = await fetch(`${url}/auth/v1/recover`, {
-        method: 'POST',
-        headers: {
-          'apikey': key,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email })
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.msg || data.message || 'Failed to send reset email')
-      }
-      
-      setSuccessMsg('Password reset instructions sent. Please check your email to create a new password.')
-    } catch (error) {
-      setErrorMsg(error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const renderHeading = () => {
-    if (isResetPassword) return 'Reset Pass.'
-    return isLogin ? 'Enter the Canvas.' : 'Procure Pass.'
-  }
-
-  const renderSubheading = () => {
-    if (isResetPassword) return 'Recover your access'
-    return isLogin ? 'Authenticate your credentials' : 'Join the distraction-free ledger'
-  }
-
   return (
     <div className="landing-page min-h-screen flex flex-col">
+      {showLoader && <Loader />}
+      
       <Navigation onNavigate={onNavigate} isAuthPage={true} />
       
       <main className="flex-grow flex items-center justify-center py-20">
@@ -142,10 +116,10 @@ const AuthPage = ({ onNavigate }) => {
           
           <div className="border border-ink p-16 bg-cream relative">
             <h2 className="text-5xl font-serif mb-4 text-center">
-              {renderHeading()}
+              {isLogin ? 'Enter the Canvas.' : 'Procure Pass.'}
             </h2>
             <p className="text-xs text-muted text-center uppercase tracking-widest mb-12">
-              {renderSubheading()}
+              {isLogin ? 'Authenticate your credentials' : 'Join the distraction-free ledger'}
             </p>
 
             {errorMsg && (
@@ -160,30 +134,27 @@ const AuthPage = ({ onNavigate }) => {
               </div>
             )}
 
-            {isResetPassword ? (
-              <form onSubmit={handleResetPassword} className="flex flex-col gap-6">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-widest font-bold">Email</label>
-                  <input 
-                    type="email" 
-                    required 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
-                    placeholder="scholar@example.com"
-                  />
-                </div>
+            {/* Google Sign-In */}
+            <button
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="google-sign-in-btn"
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              <span>{loading ? 'Connecting...' : (isLogin ? 'Continue with Google' : 'Sign up with Google')}</span>
+            </button>
 
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="btn-primary w-full mt-8 justify-center py-4 text-sm"
-                >
-                  {loading ? 'Sending...' : 'Send Reset Link'}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleAuth} className="flex flex-col gap-6">
+            {/* Divider */}
+            <div className="auth-divider">
+              <span>or continue with email</span>
+            </div>
+
+            <form onSubmit={handleAuth} className="flex flex-col gap-6">
                 {!isLogin && (
                   <div className="flex flex-col gap-2">
                     <label className="text-xs uppercase tracking-widest font-bold">Full Name</label>
@@ -211,18 +182,7 @@ const AuthPage = ({ onNavigate }) => {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <div className="flex justify-between items-end">
-                    <label className="text-xs uppercase tracking-widest font-bold">Password</label>
-                    {isLogin && (
-                      <button 
-                        type="button"
-                        onClick={() => setIsResetPassword(true)}
-                        className="text-[10px] uppercase tracking-widest text-muted hover:text-primary transition-colors"
-                      >
-                        Forgot?
-                      </button>
-                    )}
-                  </div>
+                  <label className="text-xs uppercase tracking-widest font-bold">Password</label>
                   <input 
                     type="password" 
                     required 
@@ -236,31 +196,19 @@ const AuthPage = ({ onNavigate }) => {
                 <button 
                   type="submit" 
                   disabled={loading}
-                  className="btn-primary w-full mt-8 justify-center py-4 text-sm cursor-pointer hover:bg-primary transition-colors"
+                  className="btn-primary w-full mt-4 justify-center py-4 text-sm cursor-pointer hover:bg-primary transition-colors"
                 >
                   {loading ? 'Authenticating...' : (isLogin ? 'Log In' : 'Sign Up')}
                 </button>
               </form>
-            )}
 
             <div className="mt-12 text-center flex flex-col gap-4">
-              {isResetPassword && (
-                <button 
-                  onClick={() => setIsResetPassword(false)} 
-                  className="text-xs uppercase tracking-widest text-muted hover:text-primary transition-colors hover:italic cursor-pointer"
-                >
-                  Return to Pass Authentication.
-                </button>
-              )}
-              
-              {!isResetPassword && (
-                <button 
-                  onClick={() => setIsLogin(!isLogin)} 
-                  className="text-xs uppercase tracking-widest text-muted hover:text-primary transition-colors hover:italic cursor-pointer"
-                >
-                  {isLogin ? "Don't have a pass? Sign up here." : "Already have a pass? Log in."}
-                </button>
-              )}
+              <button 
+                onClick={() => setIsLogin(!isLogin)} 
+                className="text-xs uppercase tracking-widest text-muted hover:text-primary transition-colors hover:italic cursor-pointer"
+              >
+                {isLogin ? "Don't have a pass? Sign up here." : "Already have a pass? Log in."}
+              </button>
             </div>
 
           </div>
@@ -271,8 +219,10 @@ const AuthPage = ({ onNavigate }) => {
         <div>NoteNook Publishing © 2026</div>
         <div>All Rights Reserved</div>
       </footer>
+
     </div>
   )
 }
 
 export default AuthPage
+

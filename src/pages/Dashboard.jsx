@@ -62,7 +62,7 @@ const Dashboard = ({ onNavigate }) => {
     <div className="canvas-layout">
       {/* Header */}
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-4">
+        <div className="flex justify-between items-end border-b border-ink pb-8">
           <div
             className="logo-mark font-serif text-4xl text-primary"
             style={{ cursor: 'pointer' }}
@@ -71,40 +71,48 @@ const Dashboard = ({ onNavigate }) => {
             NN.
           </div>
           
-          {/* Desktop Navigation */}
-          <div className="desktop-nav gap-8 items-end text-right">
-            <div className="flex items-center gap-4">
-              <div className="uppercase tracking-widest text-xs font-bold font-serif italic">
-                Edition: {isPro ? 'Pro' : 'Free'}
-              </div>
-              <NotificationBell />
-            </div>
+          {/* Desktop Navigation - 3 Zone Layout */}
+          <div className="desktop-nav-container flex-grow flex justify-between items-end ml-12">
             
-            {/* Customization Toggle */}
-            <button 
-              onClick={() => isPro ? setIsEditing(!isEditing) : onNavigate('pricing')}
-              className={`dash-nav-btn ${isEditing ? 'text-primary border-b border-primary' : ''}`}
-            >
-              {isEditing ? 'Save Layout' : 'Customize'} {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: Canvas Layouts">Pro</span>}
-            </button>
+            {/* Center: Primary Navigation */}
+            <nav className="desktop-nav-main flex gap-6 items-center flex-grow justify-center">
+              <button onClick={() => onNavigate('analytics')} className="dash-nav-btn">Analytics</button>
+              <button onClick={() => onNavigate('rooms')} className="dash-nav-btn">Study Rooms</button>
+              <button onClick={() => onNavigate('calendar')} className="dash-nav-btn">Calendar</button>
+              <button onClick={() => onNavigate('exams')} className="dash-nav-btn">
+                Exams {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: Full Exam Planner">Pro</span>}
+              </button>
+              <button onClick={() => onNavigate('goals')} className="dash-nav-btn">Goals</button>
+              <button onClick={() => onNavigate('resume')} className="dash-nav-btn">
+                Resume {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: AI Resume Builder">Pro</span>}
+              </button>
+            </nav>
 
-            <button onClick={() => onNavigate('analytics')} className="dash-nav-btn">Analytics</button>
-            <button onClick={() => onNavigate('rooms')} className="dash-nav-btn">🏠 Study Rooms</button>
-            <button onClick={() => onNavigate('calendar')} className="dash-nav-btn">Calendar</button>
-            <button onClick={() => onNavigate('exams')} className="dash-nav-btn">
-              Exams {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: Full Exam Planner">Pro</span>}
-            </button>
-            <button onClick={() => onNavigate('goals')} className="dash-nav-btn">Goals</button>
-            <button onClick={() => onNavigate('resume')} className="dash-nav-btn">
-              Resume {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: AI Resume Builder">Pro</span>}
-            </button>
-            <button
-              onClick={() => onNavigate('pricing')}
-              className={`dash-nav-btn ${!isPro ? 'dash-nav-btn--highlight' : ''}`}
-            >
-              {isPro ? 'Plans' : '⭐ Upgrade'}
-            </button>
-            <button onClick={handleLogout} className="dash-nav-btn">Sign Out</button>
+            {/* Right: Utilities & Account */}
+            <div className="desktop-nav-utilities flex gap-6 items-center justify-end">
+              <div className="flex items-center gap-4 border-r border-ink pr-6 mr-2">
+                <div className="uppercase tracking-widest text-[10px] font-bold font-serif italic text-muted">
+                  Edition: <span className="text-primary not-italic">{isPro ? 'Pro' : 'Free'}</span>
+                </div>
+                <NotificationBell />
+              </div>
+              
+              <button 
+                onClick={() => isPro ? setIsEditing(!isEditing) : onNavigate('pricing')}
+                className={`dash-nav-btn ${isEditing ? 'text-primary border-b border-primary' : ''}`}
+              >
+                {isEditing ? 'Save Layout' : 'Customize'} {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: Canvas Layouts">Pro</span>}
+              </button>
+              
+              <button
+                onClick={() => onNavigate('pricing')}
+                className={`dash-nav-btn ${!isPro ? 'dash-nav-btn--highlight' : ''}`}
+              >
+                {isPro ? 'Plans' : '⭐ Upgrade'}
+              </button>
+              
+              <button onClick={handleLogout} className="dash-nav-btn text-muted hover:text-primary">Sign Out</button>
+            </div>
           </div>
 
           {/* Mobile Hamburger Toggle & Bell */}

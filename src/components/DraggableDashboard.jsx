@@ -30,7 +30,7 @@ const WIDGETS = {
 
 const DEFAULT_ORDER = ['timer', 'metrics', 'ledger', 'archives'];
 
-const DashboardWidget = ({ id, title, children, isEditing }) => {
+const DashboardWidget = ({ id, title, children, isEditing, index }) => {
   const {
     attributes,
     listeners,
@@ -46,10 +46,11 @@ const DashboardWidget = ({ id, title, children, isEditing }) => {
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 100 : 'auto',
     position: isDragging ? 'relative' : 'static',
+    animationDelay: `${index * 0.15}s`
   };
 
   return (
-    <section ref={setNodeRef} style={style} className={`dash-section ${isEditing ? 'border-2 border-primary/50 border-dashed rounded bg-primary/5' : ''}`}>
+    <section ref={setNodeRef} style={style} className={`dash-section widget-reveal ${isEditing ? 'border-2 border-primary/50 border-dashed rounded bg-primary/5' : ''}`}>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-serif text-muted italic">{title}</h2>
         {isEditing && (
@@ -125,7 +126,7 @@ const DraggableDashboard = ({ onNavigate, isEditing }) => {
           items={items}
           strategy={rectSortingStrategy}
         >
-          {items.map(id => {
+          {items.map((id, index) => {
             const widget = WIDGETS[id];
             if (!widget) return null;
             
@@ -135,6 +136,7 @@ const DraggableDashboard = ({ onNavigate, isEditing }) => {
                 id={id} 
                 title={widget.title}
                 isEditing={isEditing}
+                index={index}
               >
                 {id === 'archives' ? (
                   <NotesPreview onNavigate={onNavigate} />

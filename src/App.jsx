@@ -14,6 +14,7 @@ import StudyRoomsListPage from './pages/StudyRoomsListPage'
 import StudyRoomPage from './pages/StudyRoomPage'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
+import Loader from './components/Loader'
 import { useAuth } from './contexts/AuthContext'
 import { useTheme } from './contexts/ThemeContext'
 import './App.css'
@@ -24,9 +25,22 @@ function App() {
   const [currentPage, setCurrentPage] = useState('landing')
   const [activeRoomId, setActiveRoomId] = useState(null)
   const [activeRoomName, setActiveRoomName] = useState('')
-  const { user, profile } = useAuth()
+  const { user, profile, isPasswordResetFlow } = useAuth()
   const { isDark, toggle, theme, setThemeById, themes } = useTheme()
   const [themePanelOpen, setThemePanelOpen] = useState(false)
+  const [showOAuthLoader, setShowOAuthLoader] = useState(false)
+
+  // Detect OAuth callback (Google redirect) and show the Pencil Loader
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash && hash.includes('access_token')) {
+      setShowOAuthLoader(true)
+      // Clean the URL hash
+      window.history.replaceState(null, '', window.location.pathname)
+      // Show loader for 2.5s to match the email login experience
+      setTimeout(() => setShowOAuthLoader(false), 2500)
+    }
+  }, [])
 
   const enterRoom = (id, name) => {
     setActiveRoomId(id)
@@ -43,6 +57,11 @@ function App() {
   }
 
   useEffect(() => {
+    if (isPasswordResetFlow) {
+      setCurrentPage('auth')
+      return
+    }
+
     if (!user && PROTECTED.includes(currentPage)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentPage('landing')
@@ -56,11 +75,12 @@ function App() {
         setCurrentPage('setup')
       }
     }
-  }, [user, profile, currentPage])
+  }, [user, profile, currentPage, isPasswordResetFlow])
 
   return (
     <>
       <CustomCursor />
+      {showOAuthLoader && <Loader />}
 
       {/* Floating theme picker */}
       <div className="theme-picker-wrap">

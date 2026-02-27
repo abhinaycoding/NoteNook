@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Navigation from '../components/Navigation'
+import Footer from '../components/Footer'
 import './LandingPage.css'
 
 const LiveClock = () => {
@@ -194,7 +195,7 @@ const LandingPage = ({ onNavigate }) => {
           {/* Header Volume I */}
           <section id="manifesto" className="container mt-20 pt-12" ref={heroRef}>
             <h1
-              className="text-8xl font-serif text-center mt-12 mb-8 reveal"
+              className="text-8xl font-serif text-center mt-12 mb-8"
               style={{
                 transform: `translateY(-${parallaxOffset}px) scale(${parallaxScale})`,
                 opacity: parallaxOpacity,
@@ -202,7 +203,13 @@ const LandingPage = ({ onNavigate }) => {
                 willChange: 'transform, opacity',
               }}
             >
-              The Art of <br/> <i className="text-primary text-serif-italic">Focus</i>.
+              <span className="title-line-wrapper">
+                <span className="title-line">The Art of</span>
+              </span>
+              <br/>
+              <span className="title-line-wrapper">
+                <i className="text-primary text-serif-italic title-line title-line-delay-1">Focus.</i>
+              </span>
             </h1>
             
             <div
@@ -214,7 +221,7 @@ const LandingPage = ({ onNavigate }) => {
                 willChange: 'transform, opacity',
               }}
             >
-              <p className="editorial-lead text-lg font-medium">
+              <p className="editorial-lead text-lg font-medium cinematic-fade-in">
                 We have traded scattered digital boards for an elegant, distraction-free ledger. 
                 A curated canvas for the modern student. Reclaim your attention. 
               </p>
@@ -360,10 +367,7 @@ const LandingPage = ({ onNavigate }) => {
 
         </main>
 
-        <footer className="container py-8 flex justify-between uppercase tracking-widest text-xs font-bold border-t border-ink mt-20">
-          <div>NoteNook Publishing © 2026</div>
-          <div>All Rights Reserved</div>
-        </footer>
+        <Footer />
       </div>
     </>
   )

@@ -31,17 +31,17 @@
 
 /* ── Nav buttons ── */
 .dash-nav-btn {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
+  letter-spacing: 0.15em;
+  font-weight: 500;
   color: var(--text-secondary);
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 0.5rem 0;
   font-family: var(--font-sans);
-  transition: color 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .dash-nav-btn:hover { color: var(--primary); }
@@ -323,15 +323,27 @@
 }
 
 /* ---- Responsive Navigation Explicit Rules ---- */
-.desktop-nav {
+.desktop-nav-container {
   display: flex !important;
+  gap: 2rem;
 }
+.desktop-nav-main {
+  display: flex !important;
+  gap: 1.5rem;
+}
+.desktop-nav-utilities {
+  display: flex !important;
+  gap: 1.5rem;
+}
+
 .mobile-nav-toggle {
   display: none !important;
 }
 
 @media (max-width: 900px) {
-  .desktop-nav {
+  .desktop-nav-container,
+  .desktop-nav-main,
+  .desktop-nav-utilities {
     display: none !important;
   }
   .mobile-nav-toggle {
@@ -448,9 +460,22 @@
 }
 
 /* Responsive grid */
-@media (max-width: 900px) {
-  .dashboard-widgets-grid {
-    grid-template-columns: 1fr;
-    gap: 3rem;
+/* ── Dashboard Reveal Animation ── */
+@keyframes widget-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.98);
+    filter: blur(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }
+
+.widget-reveal {
+  animation: widget-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0; /* Start hidden */
+}
+
