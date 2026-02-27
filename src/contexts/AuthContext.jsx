@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -32,12 +33,17 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('ff_session', JSON.stringify({ session: newSession, user: newUser }))
       setSession(newSession)
       setUser(newUser)
+      await supabase.auth.setSession({
+        access_token: newSession.access_token,
+        refresh_token: newSession.refresh_token
+      })
       await fetchProfile(newUser.id, newSession.access_token)
     } else {
       localStorage.removeItem('ff_session')
       setSession(null)
       setUser(null)
       setProfile(null)
+      await supabase.auth.signOut()
     }
   }
 
@@ -61,6 +67,12 @@ export const AuthProvider = ({ children }) => {
 
           setSession(storedSession)
           setUser(storedUser)
+
+          await supabase.auth.setSession({
+            access_token: storedSession.access_token,
+            refresh_token: storedSession.refresh_token
+          })
+
           if (storedUser?.id) {
             await fetchProfile(storedUser.id, storedSession.access_token)
           }
@@ -72,6 +84,32 @@ export const AuthProvider = ({ children }) => {
     }
 
     initAuth()
+
+    // Listen for auth state changes — handles email verification redirect
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (event === 'SIGNED_IN' && newSession) {
+        const u = newSession.user
+        if (u && newSession.access_token) {
+          setSession({
+            access_token: newSession.access_token,
+            refresh_token: newSession.refresh_token,
+            expires_at: newSession.expires_at,
+          })
+          setUser(u)
+          localStorage.setItem('ff_session', JSON.stringify({
+            session: {
+              access_token: newSession.access_token,
+              refresh_token: newSession.refresh_token,
+              expires_at: newSession.expires_at,
+            },
+            user: u,
+          }))
+          await fetchProfile(u.id, newSession.access_token)
+        }
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const signOut = () => {
@@ -99,7 +137,7 @@ export const AuthProvider = ({ children }) => {
         flexDirection: 'column',
         gap: '1rem'
       }}>
-        <div style={{ fontSize: '2.5rem', color: '#CC4B2C' }}>FF.</div>
+        <div style={{ fontSize: '2.5rem', color: '#CC4B2C' }}>NN.</div>
         <div style={{
           fontSize: '0.65rem',
           textTransform: 'uppercase',

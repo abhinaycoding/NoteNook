@@ -35,8 +35,8 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
 
         {/* Left: Branding */}
         <div className="nav-brand" onClick={() => onNavigate('landing')}>
-          <div className="logo-mark font-serif">FF.</div>
-          <span className="logo-type uppercase tracking-widest text-xs font-bold">FocusFlow</span>
+          <div className="logo-mark font-serif">NN.</div>
+          <span className="logo-type uppercase tracking-widest text-xs font-bold">NoteNook</span>
         </div>
 
         {/* Center: Links */}

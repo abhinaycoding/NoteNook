@@ -11,37 +11,96 @@ const QUOTES = [
   "Clarity of purpose produces clarity of action.",
 ]
 
+const AnimatedCounter = ({ value, isDecimal = false, duration = 1500, padStart = 0 }) => {
+  const finalValue = parseFloat(value)
+  const isInvalid = isNaN(finalValue) || finalValue === 0
+  
+  const [count, setCount] = useState(isInvalid ? (finalValue || 0) : 0)
+
+  useEffect(() => {
+    if (isInvalid) {
+      return
+    }
+
+    let startTimestamp = null
+    let frameId = null
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1)
+      
+      const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
+      setCount(finalValue * easeProgress)
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(step)
+      } else {
+        setCount(finalValue)
+      }
+    }
+
+    frameId = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frameId)
+  }, [finalValue, isInvalid, duration])
+
+  if (isInvalid && isNaN(finalValue)) return <span>{value}</span>
+
+  let displayValue = isDecimal ? count.toFixed(1) : Math.floor(count).toString()
+  if (padStart > 0 && !isDecimal) {
+    displayValue = displayValue.padStart(padStart, '0')
+  }
+
+  return <span>{displayValue}</span>
+}
+
 const AnalyticsCards = () => {
   const { user } = useAuth()
   const [stats, setStats] = useState({ hoursToday: 0, tasksCompleted: 0, streak: 0, totalTasks: 0 })
+  const [loading, setLoading] = useState(true)
   const quote = QUOTES[new Date().getDay() % QUOTES.length]
 
   useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+
+        const [{ data: sessions }, { data: allTasks }] = await Promise.all([
+          supabase.from('sessions').select('duration_seconds').eq('user_id', user.id).gte('created_at', today.toISOString()),
+          supabase.from('tasks').select('id, completed').eq('user_id', user.id).not('due_date', 'eq', 'goal').not('due_date', 'eq', 'syllabus'),
+        ])
+
+        const totalSeconds = (sessions || []).reduce((s, r) => s + (r.duration_seconds || 0), 0)
+        const completed = (allTasks || []).filter(t => t.completed).length
+        const total = (allTasks || []).length
+
+        setStats({
+          hoursToday: (totalSeconds / 3600).toFixed(1),
+          tasksCompleted: completed,
+          totalTasks: total,
+          completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+        })
+      } catch (err) {
+        console.error('Stats error:', err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
     if (user) fetchStats()
   }, [user])
 
-  const fetchStats = async () => {
-    try {
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-
-      const [{ data: sessions }, { data: allTasks }] = await Promise.all([
-        supabase.from('sessions').select('duration_seconds').eq('user_id', user.id).gte('created_at', today.toISOString()),
-        supabase.from('tasks').select('id, completed').eq('user_id', user.id).not('due_date', 'eq', 'goal').not('due_date', 'eq', 'syllabus'),
-      ])
-
-      const totalSeconds = (sessions || []).reduce((s, r) => s + (r.duration_seconds || 0), 0)
-      const completed = (allTasks || []).filter(t => t.completed).length
-      const total = (allTasks || []).length
-
-      setStats({
-        hoursToday: (totalSeconds / 3600).toFixed(1),
-        tasksCompleted: completed,
-        totalTasks: total,
-        completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-      })
-    } catch (err) {
-      console.error('Stats error:', err.message)
-    }
+  if (loading) {
+    return (
+      <div className="metrics-container" style={{ gap: '1.5rem' }}>
+        <div className="flex justify-between gap-4">
+          <div className="skeleton" style={{ height: '60px', flex: 1 }} />
+          <div className="skeleton" style={{ height: '60px', flex: 1 }} />
+          <div className="skeleton" style={{ height: '60px', flex: 1 }} />
+        </div>
+        <div className="skeleton" style={{ height: '8px', width: '100%' }} />
+        <div className="skeleton" style={{ height: '20px', width: '80%', margin: '0 auto' }} />
+      </div>
+    )
   }
 
   return (
@@ -49,28 +108,50 @@ const AnalyticsCards = () => {
       {/* Stat row */}
       <div className="metrics-row">
         <div className="metric-block">
-          <div className="metric-number">{stats.hoursToday}</div>
+          <div className="metric-number">
+            <AnimatedCounter value={stats.hoursToday} isDecimal={true} />
+          </div>
           <div className="metric-label">Hours Today</div>
         </div>
         <div className="metric-block">
-          <div className="metric-number">{String(stats.tasksCompleted).padStart(2, '0')}</div>
+          <div className="metric-number">
+            <AnimatedCounter value={stats.tasksCompleted} padStart={2} />
+          </div>
           <div className="metric-label">Tasks Done</div>
         </div>
         <div className="metric-block">
-          <div className="metric-number">{stats.completionRate || 0}<span style={{ fontSize: '1.5rem' }}>%</span></div>
+          <div className="metric-number">
+            <AnimatedCounter value={stats.completionRate || 0} />
+            <span style={{ fontSize: '1.5rem' }}>%</span>
+          </div>
           <div className="metric-label">Completion</div>
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Circular Progress */}
       {stats.totalTasks > 0 && (
         <div className="metrics-progress-wrap">
-          <div
-            className="metrics-progress-fill"
-            style={{ width: `${stats.completionRate}%` }}
-          />
-          <div className="metrics-progress-label">
-            {stats.tasksCompleted} of {stats.totalTasks} tasks complete
+          <div className="circular-progress">
+            <svg viewBox="0 0 100 100">
+              {/* Background Track */}
+              <circle 
+                className="track" 
+                cx="50" cy="50" r="40" 
+              />
+              {/* Animated Fill */}
+              <circle 
+                className="fill" 
+                cx="50" cy="50" r="40" 
+                strokeDasharray="251.2" 
+                strokeDashoffset={251.2 - (251.2 * stats.completionRate) / 100}
+              />
+            </svg>
+          </div>
+          <div className="metrics-progress-info">
+            <div className="metrics-progress-label">Daily Progress</div>
+            <div className="metrics-progress-sub">
+              {stats.tasksCompleted} of {stats.totalTasks} Tasks
+            </div>
           </div>
         </div>
       )}

@@ -111,7 +111,7 @@ const ProfileSetup = ({ onNavigate, user }) => {
       </main>
 
       <footer className="container py-8 flex justify-between uppercase tracking-widest text-xs font-bold border-t border-ink mt-auto">
-        <div>FocusFlow Publishing © 2026</div>
+        <div>NoteNook Publishing © 2026</div>
         <div>All Rights Reserved</div>
       </footer>
     </div>

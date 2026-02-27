@@ -22,7 +22,7 @@ const CustomCursor = () => {
       }
     };
 
-    const handleMouseOut = (e) => {
+    const handleMouseOut = () => {
         cursor?.classList.remove('hovering');
     };
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
+
 import { useAuth } from '../contexts/AuthContext'
 
-const NoteEditor = ({ note, onUpdate, user }) => {
+const NoteEditor = ({ note, onUpdate }) => {
   const [title, setTitle] = useState(note.title || '')
   const [content, setContent] = useState(note.content || '')
   const [folder, setFolder] = useState(note.folder || 'Uncategorized')
@@ -19,7 +19,7 @@ const NoteEditor = ({ note, onUpdate, user }) => {
     setFolder(note.folder || 'Uncategorized')
     setSaveStatus('Saved')
     countWords(note.content || '')
-  }, [note.id])
+  }, [note.id, note.title, note.content, note.folder])
 
   const countWords = (text) => {
     const words = text.trim().split(/\s+/).filter(Boolean)

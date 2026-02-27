@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -30,7 +30,7 @@ const WIDGETS = {
 
 const DEFAULT_ORDER = ['timer', 'metrics', 'ledger', 'archives'];
 
-const DashboardWidget = ({ id, title, children, isPro, isEditing }) => {
+const DashboardWidget = ({ id, title, children, isEditing }) => {
   const {
     attributes,
     listeners,
@@ -74,7 +74,7 @@ const DashboardWidget = ({ id, title, children, isPro, isEditing }) => {
   );
 };
 
-const DraggableDashboard = ({ onNavigate, isPro, isEditing }) => {
+const DraggableDashboard = ({ onNavigate, isEditing }) => {
   const [items, setItems] = useState(() => {
     const saved = localStorage.getItem('ff_widget_order');
     if (saved) {
@@ -84,7 +84,7 @@ const DraggableDashboard = ({ onNavigate, isPro, isEditing }) => {
         if (parsed.length === DEFAULT_ORDER.length && parsed.every(p => DEFAULT_ORDER.includes(p))) {
           return parsed;
         }
-      } catch (e) { console.error('Error parsing widget order'); }
+      } catch { console.error('Error parsing widget order'); }
     }
     return DEFAULT_ORDER;
   });
@@ -134,7 +134,6 @@ const DraggableDashboard = ({ onNavigate, isPro, isEditing }) => {
                 key={id} 
                 id={id} 
                 title={widget.title}
-                isPro={isPro}
                 isEditing={isEditing}
               >
                 {id === 'archives' ? (

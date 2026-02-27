@@ -1,27 +1,46 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 const ThemeContext = createContext(null)
 
+const THEMES = [
+  { id: 'light',    label: 'Light',    icon: '☀',  dark: false },
+  { id: 'dark',     label: 'Dark',     icon: '☽',  dark: true },
+  { id: 'midnight', label: 'Midnight', icon: '🌊', dark: true },
+  { id: 'forest',   label: 'Forest',   icon: '🌲', dark: true },
+  { id: 'rosewood', label: 'Rosewood', icon: '🌸', dark: true },
+  { id: 'sepia',    label: 'Sepia',    icon: '📜', dark: false },
+]
+
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem('ff_theme') === 'dark'
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('ff_theme') || 'light'
   })
 
   useEffect(() => {
     const root = document.documentElement
-    if (isDark) {
-      root.setAttribute('data-theme', 'dark')
-      localStorage.setItem('ff_theme', 'dark')
-    } else {
+    if (theme === 'light') {
       root.removeAttribute('data-theme')
-      localStorage.setItem('ff_theme', 'light')
+    } else {
+      root.setAttribute('data-theme', theme)
     }
-  }, [isDark])
+    localStorage.setItem('ff_theme', theme)
+  }, [theme])
 
-  const toggle = () => setIsDark(prev => !prev)
+  const isDark = THEMES.find(t => t.id === theme)?.dark ?? false
+
+  const toggle = () => {
+    // Simple toggle cycles: light → dark → light
+    setTheme(prev => prev === 'light' ? 'dark' : 'light')
+  }
+
+  const setThemeById = (id) => {
+    const valid = THEMES.find(t => t.id === id)
+    if (valid) setTheme(id)
+  }
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggle }}>
+    <ThemeContext.Provider value={{ theme, isDark, toggle, setThemeById, themes: THEMES }}>
       {children}
     </ThemeContext.Provider>
   )

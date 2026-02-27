@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import Confetti from './Confetti'
 import './FocusTimer.css'
 
 const PRESETS = [25, 45, 60]
@@ -58,6 +60,20 @@ const FocusTimer = () => {
   const { user } = useAuth()
   const toast = useToast()
   const [, tick] = useState(0)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const prevDone = useRef(false)
+
+  // Attach keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: ' ', // Space
+      action: () => {
+        if (_done) timerReset()
+        else if (_running) timerPause()
+        else timerStart()
+      }
+    }
+  ])
 
   useEffect(() => {
     const fn = () => tick(n => n + 1)
@@ -77,7 +93,17 @@ const FocusTimer = () => {
         if (!error) toast(`${_selected}m session logged. Well done, Scholar.`, 'success', 4000)
       }).catch(e => console.error(e.message))
     }
-  })
+  }, [user, toast])
+
+  // Trigger confetti on session complete
+  useEffect(() => {
+    if (_done && !prevDone.current) {
+      setTimeout(() => setShowConfetti(true), 0)
+      setTimeout(() => setShowConfetti(false), 3500)
+    }
+    prevDone.current = _done
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_done])
 
   const mm = Math.floor(_left / 60).toString().padStart(2, '0')
   const ss = (_left % 60).toString().padStart(2, '0')
@@ -98,6 +124,7 @@ const FocusTimer = () => {
 
   return (
     <div className="timer-widget">
+      <Confetti active={showConfetti} />
 
       {/* Preset chips */}
       <div className="timer-presets">

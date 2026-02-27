@@ -71,3 +71,145 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Neo-Brutalist Pro Card ── */
+.brutal-card {
+  border: 4px solid #000;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: #fff;
+  transition: transform 0.2s ease;
+  box-shadow: 8px 8px 0px 0px rgba(0,0,0,1);
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.brutal-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 10px 10px 0px 0px rgba(0,0,0,1);
+}
+
+.brutal-header {
+  padding: 2.5rem 2rem;
+  border-bottom: 4px solid #000;
+  position: relative;
+}
+
+.brutal-badge {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background-color: #fff;
+  color: #000;
+  font-weight: 900;
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  border: 3px solid #000;
+  box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+  transform: rotate(3deg);
+  letter-spacing: 0.1em;
+}
+
+.brutal-body {
+  padding: 2.5rem 2rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background-color: var(--cream);
+  color: #000; /* Force black text against the explicitly white background */
+  /* Grid pattern background */
+  background-image: linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+  linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.brutal-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 3rem;
+}
+
+.brutal-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brutal-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #000;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: bold;
+  box-shadow: 2px 2px 0px 0px rgba(0,0,0,1);
+  font-size: 0.9rem;
+}
+
+.brutal-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.brutal-price {
+  color: #000;
+  line-height: 1;
+}
+
+.brutal-price .currency {
+  font-size: 1.5rem;
+  font-weight: 900;
+  vertical-align: top;
+  margin-right: -4px;
+}
+
+.brutal-price .amount {
+  font-size: 4.5rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+.brutal-price .period {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: rgba(0,0,0,0.6);
+  margin-top: 0.25rem;
+}
+
+.brutal-btn {
+  background-color: #4f46e5;
+  color: #fff;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1rem 1.5rem;
+  border: 3px solid #000;
+  box-shadow: 6px 6px 0px 0px rgba(0,0,0,1);
+  transition: all 0.1s ease;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.brutal-btn:hover:not(:disabled) {
+  background-color: #4338ca;
+}
+
+.brutal-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+}
+
+.brutal-btn:disabled {
+  opacity: 0.8;
+  cursor: default;
+  background-color: #e5e5e5;
+  color: #000;
+}

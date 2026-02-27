@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import TaskPlanner from '../components/TaskPlanner'
 import NotesPreview from '../components/NotesPreview'
 import FocusTimer from '../components/FocusTimer'
@@ -7,6 +7,8 @@ import DraggableDashboard from '../components/DraggableDashboard'
 import NotificationBell from '../components/NotificationBell'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext'
+import { supabase } from '../lib/supabase'
+import OnboardingTour from '../components/OnboardingTour'
 import './Dashboard.css'
 
 const Dashboard = ({ onNavigate }) => {
@@ -14,6 +16,41 @@ const Dashboard = ({ onNavigate }) => {
   const { isPro } = usePlan()
   const [isEditing, setIsEditing] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [streak, setStreak] = useState(0)
+  const [showTour, setShowTour] = useState(() => !localStorage.getItem('ff_onboarding_done'))
+
+  // Compute greeting
+  const hour = new Date().getHours()
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const userName = user?.user_metadata?.full_name?.split(' ')[0] || 'Scholar'
+  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+  // Calculate streak
+  useEffect(() => {
+    if (!user) return
+    const calcStreak = async () => {
+      const { data } = await supabase
+        .from('sessions')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .eq('completed', true)
+        .order('created_at', { ascending: false })
+      if (!data || data.length === 0) return
+
+      // Get unique dates
+      const dates = [...new Set(data.map(s => new Date(s.created_at).toDateString()))]
+      let count = 0
+      const today = new Date()
+      for (let i = 0; i < dates.length; i++) {
+        const expected = new Date(today)
+        expected.setDate(today.getDate() - i)
+        if (dates[i] === expected.toDateString()) count++
+        else break
+      }
+      setStreak(count)
+    }
+    calcStreak()
+  }, [user])
 
   const handleLogout = () => {
     signOut()
@@ -21,6 +58,7 @@ const Dashboard = ({ onNavigate }) => {
   }
 
   return (
+    <>
     <div className="canvas-layout">
       {/* Header */}
       <header className="canvas-header container">
@@ -30,19 +68,14 @@ const Dashboard = ({ onNavigate }) => {
             style={{ cursor: 'pointer' }}
             onClick={() => onNavigate('landing')}
           >
-            FF.
+            NN.
           </div>
           
           {/* Desktop Navigation */}
           <div className="desktop-nav gap-8 items-end text-right">
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="uppercase tracking-widest text-xs font-bold font-serif italic">
-                  Edition: {isPro ? 'Pro' : 'Free'}
-                </div>
-                <div className="uppercase tracking-widest text-xs mt-1">
-                  Reader: {user?.user_metadata?.full_name || 'Scholar'}
-                </div>
+              <div className="uppercase tracking-widest text-xs font-bold font-serif italic">
+                Edition: {isPro ? 'Pro' : 'Free'}
               </div>
               <NotificationBell />
             </div>
@@ -52,16 +85,18 @@ const Dashboard = ({ onNavigate }) => {
               onClick={() => isPro ? setIsEditing(!isEditing) : onNavigate('pricing')}
               className={`dash-nav-btn ${isEditing ? 'text-primary border-b border-primary' : ''}`}
             >
-              {isEditing ? 'Save Layout' : 'Customize'} {!isPro && <span className="pro-lock-badge">Pro</span>}
+              {isEditing ? 'Save Layout' : 'Customize'} {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: Canvas Layouts">Pro</span>}
             </button>
 
             <button onClick={() => onNavigate('analytics')} className="dash-nav-btn">Analytics</button>
+            <button onClick={() => onNavigate('rooms')} className="dash-nav-btn">🏠 Study Rooms</button>
+            <button onClick={() => onNavigate('calendar')} className="dash-nav-btn">Calendar</button>
             <button onClick={() => onNavigate('exams')} className="dash-nav-btn">
-              Exams {!isPro && <span className="pro-lock-badge">Pro</span>}
+              Exams {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: Full Exam Planner">Pro</span>}
             </button>
             <button onClick={() => onNavigate('goals')} className="dash-nav-btn">Goals</button>
             <button onClick={() => onNavigate('resume')} className="dash-nav-btn">
-              Resume {!isPro && <span className="pro-lock-badge">Pro</span>}
+              Resume {!isPro && <span className="pro-lock-badge" data-tooltip="Pro Feature: AI Resume Builder">Pro</span>}
             </button>
             <button
               onClick={() => onNavigate('pricing')}
@@ -85,16 +120,20 @@ const Dashboard = ({ onNavigate }) => {
           </div>
         </div>
 
+        {/* Welcome Greeting */}
+        <div style={{ marginTop: '1.5rem' }}>
+          <div className="welcome-greeting">
+            {timeGreeting}, {userName}.
+            {streak > 0 && <span className="streak-badge" data-tooltip="Focus sessions completed consecutively">🔥 {streak}-day streak</span>}
+          </div>
+          <div className="welcome-date">{dateStr}</div>
+        </div>
+
         {/* Mobile Navigation Dropdown */}
         {isMobileMenuOpen && (
           <div className="mobile-nav-menu flex flex-col gap-4 mt-6 border-b border-ink pb-6 tracking-widest">
-            <div>
-              <div className="uppercase text-xs font-bold font-serif italic text-primary">
-                Edition: {isPro ? 'Pro' : 'Free'}
-              </div>
-              <div className="uppercase text-xs mt-1 mb-4 text-muted">
-                Reader: {user?.user_metadata?.full_name || 'Scholar'}
-              </div>
+            <div className="uppercase text-xs font-bold font-serif italic text-primary mb-4">
+              Edition: {isPro ? 'Pro' : 'Free'}
             </div>
             
             <button 
@@ -104,6 +143,7 @@ const Dashboard = ({ onNavigate }) => {
               {isEditing ? 'Save Layout' : 'Customize'} {!isPro && <span className="pro-lock-badge">Pro</span>}
             </button>
             <button onClick={() => { setIsMobileMenuOpen(false); onNavigate('analytics'); }} className="text-left text-sm uppercase hover:text-primary transition-colors">Analytics</button>
+            <button onClick={() => { setIsMobileMenuOpen(false); onNavigate('calendar'); }} className="text-left text-sm uppercase hover:text-primary transition-colors">Calendar</button>
             <button onClick={() => { setIsMobileMenuOpen(false); onNavigate('exams'); }} className="text-left text-sm uppercase hover:text-primary transition-colors">
               Exams {!isPro && <span className="pro-lock-badge">Pro</span>}
             </button>
@@ -130,6 +170,10 @@ const Dashboard = ({ onNavigate }) => {
         />
       </main>
     </div>
+
+    {/* Onboarding Tour — first visit only */}
+    {showTour && <OnboardingTour onComplete={() => setShowTour(false)} />}
+    </>
   )
 }
 

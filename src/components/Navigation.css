@@ -17,6 +17,10 @@
   backdrop-filter: blur(10px);
 }
 
+[data-theme="dark"] .nav-borders {
+  background-color: rgba(20, 18, 16, 0.95); /* matching dark --bg-color #141210 */
+}
+
 .nav-container {
   display: flex;
   justify-content: space-between;

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 import { useAuth } from './AuthContext'
@@ -38,6 +39,7 @@ export const TimerProvider = ({ children }) => {
   // Save session when complete
   useEffect(() => {
     if (!isComplete || !user || sessionSaved) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- guard prevents re-triggering
     setSessionSaved(true)
     supabase.from('sessions').insert([{
       user_id: user.id,
@@ -45,7 +47,7 @@ export const TimerProvider = ({ children }) => {
       completed: true,
       created_at: new Date().toISOString(),
     }]).catch(err => console.error('Session save error:', err.message))
-  }, [isComplete, user])
+  }, [isComplete, user, selectedMinutes, sessionSaved])
 
   const start = () => {
     if (isComplete) {

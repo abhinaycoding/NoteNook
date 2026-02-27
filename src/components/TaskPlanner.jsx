@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { usePlan } from '../contexts/PlanContext'
 import { useNotifications } from '../contexts/NotificationContext'
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import ProGate from './ProGate'
 import '../pages/Dashboard.css'
 
@@ -23,8 +24,19 @@ const TaskPlanner = () => {
   const [editingId, setEditingId] = useState(null)
   const [editTitle, setEditTitle] = useState('')
 
+  // Add global shortcut 'N' for new task
+  useKeyboardShortcuts([
+    {
+      key: 'n',
+      action: () => {
+        if (!hasReachedLimit) setIsAdding(true)
+      }
+    }
+  ])
+
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(true)
       supabase
         .from('tasks')
@@ -138,13 +150,21 @@ const TaskPlanner = () => {
       )}
 
       {/* ── Loading ── */}
-      {loading && <p className="text-xs text-muted italic mt-4">Loading tasks...</p>}
+      {loading && (
+        <div className="mt-6 flex flex-col gap-3">
+          <div className="skeleton skeleton-text" style={{ height: '36px' }} />
+          <div className="skeleton skeleton-text" style={{ height: '36px', width: '90%' }} />
+          <div className="skeleton skeleton-text" style={{ height: '36px', width: '95%' }} />
+        </div>
+      )}
 
       {/* ── Empty State ── */}
       {!loading && tasks.length === 0 && (
-        <p className="text-xs text-muted italic mt-6">
-          Your ledger is clear. Add your first task above ↑
-        </p>
+        <div className="text-center py-8 opacity-70">
+          <div className="text-4xl mb-3">📝</div>
+          <p className="font-serif italic text-lg">Your ledger is clear.</p>
+          <p className="text-xs mt-1 uppercase tracking-widest text-muted">Add your first task above.</p>
+        </div>
       )}
 
       {/* ── Incomplete Tasks ── */}

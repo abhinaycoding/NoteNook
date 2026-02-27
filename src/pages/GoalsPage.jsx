@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
+
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { usePlan } from '../contexts/PlanContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import ProGate from '../components/ProGate'
+import Confetti from '../components/Confetti'
 import './GoalsPage.css'
 
 const BADGES = [
-  { id: 'first_session', icon: '🎯', label: 'First Focus', desc: 'Complete your first timer session', check: (s, t) => s >= 1 },
+  { id: 'first_session', icon: '🎯', label: 'First Focus', desc: 'Complete your first timer session', check: (s) => s >= 1 },
   { id: 'five_sessions', icon: '🔥', label: 'On Fire', desc: '5 focus sessions completed', check: (s) => s >= 5 },
   { id: 'ten_tasks', icon: '📋', label: 'Task Master', desc: '10 tasks completed', check: (s, t) => t >= 10 },
   { id: 'ten_hours', icon: '⏰', label: 'Time Scholar', desc: '10 total hours studied', check: (s, t, h) => h >= 10 },
@@ -28,6 +29,7 @@ const GoalsPage = ({ onNavigate }) => {
   const [newTarget, setNewTarget] = useState('')
   const [stats, setStats] = useState({ sessions: 0, tasks: 0, hours: 0 })
   const [loading, setLoading] = useState(true)
+  const [celebrate, setCelebrate] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
@@ -89,7 +91,7 @@ const GoalsPage = ({ onNavigate }) => {
       isMounted = false
       clearTimeout(timer)
     }
-  }, [user])
+  }, [user, session])
 
   const getDirectHeaders = () => {
     return {
@@ -134,7 +136,7 @@ const GoalsPage = ({ onNavigate }) => {
   }
 
   // Track previously unlocked badges to trigger notifications on new ones
-  const unlockedBadges = BADGES.filter(b => b.check(stats.sessions, stats.tasks, stats.hours))
+  const unlockedBadges = useMemo(() => BADGES.filter(b => b.check(stats.sessions, stats.tasks, stats.hours)), [stats.sessions, stats.tasks, stats.hours])
   const prevBadgesCount = useRef(0)
 
   useEffect(() => {
@@ -150,7 +152,7 @@ const GoalsPage = ({ onNavigate }) => {
       })
     }
     prevBadgesCount.current = unlockedBadges.length
-  }, [unlockedBadges.length, loading, addNotification])
+  }, [unlockedBadges.length, loading, addNotification, unlockedBadges])
 
   const toggleGoal = async (id, current) => {
     if (!session) return
@@ -170,6 +172,8 @@ const GoalsPage = ({ onNavigate }) => {
       if (!current) {
         toast('Goal achieved! Well done.', 'success')
         addNotification('Goal Achieved', 'You completed a monthly goal. Keep up the momentum!', 'success')
+        setCelebrate(true)
+        setTimeout(() => setCelebrate(false), 3500)
       }
     } catch (err) {
       console.error(err)
@@ -196,10 +200,11 @@ const GoalsPage = ({ onNavigate }) => {
 
   return (
     <div className="canvas-layout">
+      <Confetti active={celebrate} />
       <header className="canvas-header container">
         <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
-            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>FF.</div>
+            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Goals & Milestones</h1>
           </div>
           <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">← Dashboard</button>

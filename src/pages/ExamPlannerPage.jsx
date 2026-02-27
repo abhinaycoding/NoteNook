@@ -20,18 +20,47 @@ const ExamPlannerPage = ({ onNavigate }) => {
 
   // Load saved exam data from Supabase profile + localStorage
   useEffect(() => {
+    const loadExamData = async () => {
+      try {
+        // Restore from localStorage first (fast, no network)
+        const savedDate = localStorage.getItem(`ff_exam_date_${user.id}`)
+        const savedName = localStorage.getItem(`ff_exam_name_${user.id}`)
+        if (savedDate) setExamDate(savedDate)
+        if (savedName) setExamName(savedName)
+
+        // Load topics from tasks table
+        const { data } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('due_date', 'syllabus')
+          .order('created_at', { ascending: true })
+        if (data) setTopics(data)
+
+        // Load exam name from profile as fallback
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('target_exam')
+          .eq('id', user.id)
+          .single()
+        if (profile?.target_exam && !savedName) setExamName(profile.target_exam)
+      } catch (err) {
+        console.error('Error loading exam data:', err.message)
+      }
+    }
+
     if (user) loadExamData()
   }, [user])
 
   // Save exam date to localStorage whenever it changes
   useEffect(() => {
     if (examDate) localStorage.setItem(`ff_exam_date_${user?.id}`, examDate)
-  }, [examDate])
+  }, [examDate, user?.id])
 
   // Save exam name to localStorage whenever it changes
   useEffect(() => {
     if (examName) localStorage.setItem(`ff_exam_name_${user?.id}`, examName)
-  }, [examName])
+  }, [examName, user?.id])
 
   // Real-time countdown tick
   useEffect(() => {
@@ -50,35 +79,6 @@ const ExamPlannerPage = ({ onNavigate }) => {
     }, 1000)
     return () => clearInterval(tick)
   }, [examDate])
-
-  const loadExamData = async () => {
-    try {
-      // Restore from localStorage first (fast, no network)
-      const savedDate = localStorage.getItem(`ff_exam_date_${user.id}`)
-      const savedName = localStorage.getItem(`ff_exam_name_${user.id}`)
-      if (savedDate) setExamDate(savedDate)
-      if (savedName) setExamName(savedName)
-
-      // Load topics from tasks table
-      const { data } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('due_date', 'syllabus')
-        .order('created_at', { ascending: true })
-      if (data) setTopics(data)
-
-      // Load exam name from profile as fallback
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('target_exam')
-        .eq('id', user.id)
-        .single()
-      if (profile?.target_exam && !savedName) setExamName(profile.target_exam)
-    } catch (err) {
-      console.error('Error loading exam data:', err.message)
-    }
-  }
 
   const handleAddTopic = async () => {
     if (!newTopic.trim()) return
@@ -128,7 +128,7 @@ const ExamPlannerPage = ({ onNavigate }) => {
       <header className="canvas-header container">
         <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
-            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>FF.</div>
+            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Exam Planner</h1>
           </div>
           <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">

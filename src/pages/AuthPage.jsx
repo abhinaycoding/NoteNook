@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import Navigation from '../components/Navigation'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 
 const AuthPage = ({ onNavigate }) => {
   const [isLogin, setIsLogin] = useState(true)
@@ -49,33 +50,37 @@ const AuthPage = ({ onNavigate }) => {
         console.log('[Auth] Navigating to dashboard...')
         onNavigate('dashboard')
       } else {
-        console.log('[Auth] Calling native signup endpoint...')
-        const res = await fetch(`${url}/auth/v1/signup`, {
-          method: 'POST',
-          headers: {
-            'apikey': key,
-            'Content-Type': 'application/json'
+        console.log('[Auth] Calling Supabase signUp...')
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName },
+            emailRedirectTo: window.location.origin,
           },
-          body: JSON.stringify({ 
-            email, 
-            password,
-            data: { full_name: fullName }
-          })
         })
-        
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.msg || data.message || 'Signup failed')
-        
-        setSuccessMsg('Registration successful. Please check your email to verify your account or proceed to login.')
-        
-        if (data.session) {
-          await setLocalSession({
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-            expires_at: data.session.expires_at
-          }, data.user)
-          onNavigate('dashboard')
+
+        if (error) throw error
+
+        // Supabase returns a user with identities=[] if already registered
+        if (data?.user?.identities?.length === 0) {
+          throw new Error('An account with this email already exists. Please log in instead.')
         }
+
+        // Always ask user to verify email — do NOT auto-login on signup
+        // Even if Supabase returns a session (email confirm disabled),
+        // we force the user to verify first for security.
+        if (data.session) {
+          // Sign out the auto-created session so user can't bypass verification
+          await supabase.auth.signOut()
+        }
+
+        setSuccessMsg('✓ Account created! Please check your inbox for a verification email and click the link to activate your account. Then come back and log in.')
+        setEmail('')
+        setPassword('')
+        setFullName('')
+        // Switch to login form after a brief delay
+        setTimeout(() => setIsLogin(true), 100)
       }
     } catch (error) {
       console.error('[Auth] Exception caught:', error)
@@ -263,7 +268,7 @@ const AuthPage = ({ onNavigate }) => {
       </main>
 
       <footer className="container py-8 flex justify-between uppercase tracking-widest text-xs font-bold border-t border-ink mt-auto">
-        <div>FocusFlow Publishing © 2026</div>
+        <div>NoteNook Publishing © 2026</div>
         <div>All Rights Reserved</div>
       </footer>
     </div>

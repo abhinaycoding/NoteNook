@@ -254,15 +254,45 @@
 }
 
 .metrics-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   border-top: 1px solid var(--border);
-  padding-top: 0.75rem;
+  padding-top: 1.25rem;
+  margin-top: 0.5rem;
 }
 
-.metrics-progress-fill {
-  height: 2px;
-  background-color: var(--primary);
-  transition: width 0.6s ease;
-  margin-bottom: 0.4rem;
+.circular-progress {
+  position: relative;
+  width: 50px;
+  height: 50px;
+}
+
+.circular-progress svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.circular-progress circle {
+  fill: none;
+  stroke-width: 4;
+}
+
+.circular-progress .track {
+  stroke: var(--border);
+}
+
+.circular-progress .fill {
+  stroke: var(--primary);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.metrics-progress-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .metrics-progress-label {
@@ -270,6 +300,13 @@
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--text-secondary);
+  margin-bottom: 0.2rem;
+}
+
+.metrics-progress-sub {
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .metrics-quote {

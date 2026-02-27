@@ -14,7 +14,7 @@ const Sidebar = ({ activeTab, setActiveTab, onNavigate }) => {
     <aside className="sidebar">
       <div className="sidebar-header" onClick={() => onNavigate('landing')}>
         <div className="logo-icon"></div>
-        <span className="logo-text">FocusFlow</span>
+        <span className="logo-text">NoteNook</span>
       </div>
 
       <nav className="sidebar-nav">

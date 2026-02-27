@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import React, { useState, useEffect, useCallback } from 'react'
+
 import NoteEditor from '../components/NoteEditor'
 import ProGate from '../components/ProGate'
 import { useToast } from '../contexts/ToastContext'
@@ -16,8 +16,14 @@ const LibraryPage = ({ onNavigate }) => {
   const [activeNoteId, setActiveNoteId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFolder, setActiveFolder] = useState('All')
-  
   const hasReachedLimit = !isPro && notes.length >= 10
+  
+  const getHeaders = useCallback((prefer = 'return=representation') => ({
+    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${session?.access_token}`,
+    'Content-Type': 'application/json',
+    ...(prefer && { 'Prefer': prefer })
+  }), [session])
   
   // Fetch notes on mount
   useEffect(() => {
@@ -32,7 +38,22 @@ const LibraryPage = ({ onNavigate }) => {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
         const data = await res.json()
         
-        if (isMounted) setNotes(data || [])
+        if (isMounted) {
+          setNotes(data || [])
+          
+          // Check if we navigated here from Dashboard Archives
+          const pendingNoteId = localStorage.getItem('ff_open_note')
+          if (pendingNoteId) {
+            setActiveNoteId(pendingNoteId)
+            localStorage.removeItem('ff_open_note')
+            
+            // Also ensure we're viewing the correct folder if not 'All'
+            const targetNote = data?.find(n => n.id === pendingNoteId)
+            if (targetNote && targetNote.folder && targetNote.folder !== 'Uncategorized') {
+              setActiveFolder(targetNote.folder)
+            }
+          }
+        }
       } catch (error) {
         console.error('Error fetching notes:', error.message)
       } finally {
@@ -42,14 +63,7 @@ const LibraryPage = ({ onNavigate }) => {
     
     fetchNotes()
     return () => { isMounted = false }
-  }, [user, session])
-
-  const getHeaders = (prefer = 'return=representation') => ({
-    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
-    ...(prefer && { 'Prefer': prefer })
-  })
+  }, [user, session, getHeaders])
 
   const handleCreateNote = async () => {
     if (!session) return
@@ -128,7 +142,7 @@ const LibraryPage = ({ onNavigate }) => {
       <header className="canvas-header container">
         <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
-            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>FF.</div>
+            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 line-left pl-4">The Library</h1>
           </div>
           <div className="flex gap-8 items-end text-right">

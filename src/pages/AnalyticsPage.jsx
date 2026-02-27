@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend
+  ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts'
 import './AnalyticsPage.css'
 
@@ -17,6 +17,7 @@ const AnalyticsPage = ({ onNavigate }) => {
 
   useEffect(() => {
     if (user) fetchAnalytics()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const fetchAnalytics = async () => {
@@ -96,7 +97,7 @@ const AnalyticsPage = ({ onNavigate }) => {
       <header className="canvas-header container">
         <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
-            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>FF.</div>
+            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Analytics</h1>
           </div>
           <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">
