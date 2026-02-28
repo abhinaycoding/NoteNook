@@ -334,6 +334,11 @@
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  .cal-month-nav {
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  
   .cal-cell {
     min-height: 60px;
     padding: 0.25rem;

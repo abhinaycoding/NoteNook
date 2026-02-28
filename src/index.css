@@ -323,20 +323,23 @@ body::before {
   width: 20px;
   height: 20px;
   background-color: var(--primary);
+  border: 2px solid rgba(255, 255, 255, 0.8);
   border-radius: 50%;
   position: fixed;
-  pointer-events: none; /* CRITICAL: prevents cursor from blocking clicks */
-  transform: translate(-50%, -50%);
-  z-index: 9999;
+  top: 0;
+  left: 0;
+  pointer-events: none !important; 
+  z-index: 2147483647 !important;
   transition: width 0.2s, height 0.2s, background-color 0.2s;
-  mix-blend-mode: difference;
+  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+  will-change: transform;
 }
 
 .custom-cursor.hovering {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   background-color: var(--accent);
-  opacity: 0.5;
+  opacity: 0.8;
 }
 
 /* Google Sign-In Button */
@@ -580,6 +583,17 @@ button {
 
 .text-primary { color: var(--primary); }
 .text-accent { color: var(--accent); }
+
+/* Padding & Width Utilities */
+.p-16 { padding: 4rem; }
+.max-w-lg { max-width: 32rem; margin: 0 auto; }
+.max-w-4xl { max-width: 56rem; margin: 0 auto; }
+.max-w-5xl { max-width: 64rem; margin: 0 auto; }
+
+@media (max-width: 768px) {
+  .p-16 { padding: 1.5rem; }
+  .max-w-lg, .max-w-4xl, .max-w-5xl { max-width: 100%; }
+}
 
 /* ── Micro-interactions ── */
 button:active:not(:disabled) {

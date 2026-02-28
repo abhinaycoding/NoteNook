@@ -144,15 +144,15 @@ export const AuthProvider = ({ children }) => {
         backgroundColor: '#F7F5F0',
         fontFamily: "'Instrument Serif', Georgia, serif",
         flexDirection: 'column',
-        gap: '1rem'
+        gap: '1rem',
+        zIndex: 9999
       }}>
         <div style={{ fontSize: '2.5rem', color: '#CC4B2C' }}>NN.</div>
         <div style={{
           fontSize: '0.65rem',
           textTransform: 'uppercase',
           letterSpacing: '0.2em',
-          color: '#707070',
-          animation: 'none'
+          color: '#707070'
         }}>
           Loading the Canvas...
         </div>

@@ -13,12 +13,13 @@ const QUOTES = [
 
 const AnimatedCounter = ({ value, isDecimal = false, duration = 1500, padStart = 0 }) => {
   const finalValue = parseFloat(value)
-  const isInvalid = isNaN(finalValue) || finalValue === 0
+  const isInvalid = isNaN(finalValue)
   
-  const [count, setCount] = useState(isInvalid ? (finalValue || 0) : 0)
+  const [count, setCount] = useState(0)
 
   useEffect(() => {
     if (isInvalid) {
+      setCount(0)
       return
     }
 
@@ -43,9 +44,9 @@ const AnimatedCounter = ({ value, isDecimal = false, duration = 1500, padStart =
     return () => cancelAnimationFrame(frameId)
   }, [finalValue, isInvalid, duration])
 
-  if (isInvalid && isNaN(finalValue)) return <span>{value}</span>
+  if (isInvalid) return <span>{value}</span>
 
-  let displayValue = isDecimal ? count.toFixed(1) : Math.floor(count).toString()
+  let displayValue = isDecimal ? count.toFixed(1) : Math.round(count).toString()
   if (padStart > 0 && !isDecimal) {
     displayValue = displayValue.padStart(padStart, '0')
   }
@@ -55,38 +56,60 @@ const AnimatedCounter = ({ value, isDecimal = false, duration = 1500, padStart =
 
 const AnalyticsCards = () => {
   const { user } = useAuth()
-  const [stats, setStats] = useState({ hoursToday: 0, tasksCompleted: 0, streak: 0, totalTasks: 0 })
+  const [stats, setStats] = useState({ 
+    hoursToday: 0, 
+    tasksCompleted: 0, 
+    streak: 0, 
+    totalTasks: 0,
+    completionRate: 0 
+  })
   const [loading, setLoading] = useState(true)
   const quote = QUOTES[new Date().getDay() % QUOTES.length]
 
+  const fetchStats = async () => {
+    if (!user) return
+    try {
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+
+      const [{ data: sessions }, { data: allTasks }] = await Promise.all([
+        supabase.from('sessions').select('duration_seconds').eq('user_id', user.id).gte('created_at', today.toISOString()),
+        supabase.from('tasks').select('id, completed, due_date').eq('user_id', user.id),
+      ])
+
+      // Harmonized filter with TaskPlanner
+      const filteredTasks = (allTasks || []).filter(t => t.due_date !== 'goal' && t.due_date !== 'syllabus')
+      
+      const totalSeconds = (sessions || []).reduce((s, r) => s + (r.duration_seconds || 0), 0)
+      const completedCount = filteredTasks.filter(t => t.completed).length
+      const totalCount = filteredTasks.length
+
+      setStats(prev => ({
+        ...prev,
+        hoursToday: (totalSeconds / 3600).toFixed(1),
+        tasksCompleted: completedCount,
+        totalTasks: totalCount,
+        completionRate: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
+      }))
+    } catch (err) {
+      console.error('Stats error:', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const today = new Date(); today.setHours(0, 0, 0, 0)
+    if (user) {
+      fetchStats()
 
-        const [{ data: sessions }, { data: allTasks }] = await Promise.all([
-          supabase.from('sessions').select('duration_seconds').eq('user_id', user.id).gte('created_at', today.toISOString()),
-          supabase.from('tasks').select('id, completed').eq('user_id', user.id).not('due_date', 'eq', 'goal').not('due_date', 'eq', 'syllabus'),
-        ])
+      const handleUpdate = () => fetchStats()
+      window.addEventListener('task-updated', handleUpdate)
+      window.addEventListener('session-saved', handleUpdate)
 
-        const totalSeconds = (sessions || []).reduce((s, r) => s + (r.duration_seconds || 0), 0)
-        const completed = (allTasks || []).filter(t => t.completed).length
-        const total = (allTasks || []).length
-
-        setStats({
-          hoursToday: (totalSeconds / 3600).toFixed(1),
-          tasksCompleted: completed,
-          totalTasks: total,
-          completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
-        })
-      } catch (err) {
-        console.error('Stats error:', err.message)
-      } finally {
-        setLoading(false)
+      return () => {
+        window.removeEventListener('task-updated', handleUpdate)
+        window.removeEventListener('session-saved', handleUpdate)
       }
     }
-
-    if (user) fetchStats()
   }, [user])
 
   if (loading) {

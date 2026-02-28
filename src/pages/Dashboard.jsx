@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext'
 import { supabase } from '../lib/supabase'
 import OnboardingTour from '../components/OnboardingTour'
+import DangerZone from '../components/DangerZone'
 import './Dashboard.css'
 
 const Dashboard = ({ onNavigate }) => {
@@ -171,6 +172,7 @@ const Dashboard = ({ onNavigate }) => {
       </header>
 
       <main className="canvas-main container" style={{ marginTop: '3rem', paddingBottom: '5rem' }}>
+        <DangerZone />
         <DraggableDashboard 
           onNavigate={onNavigate}
           isPro={isPro}

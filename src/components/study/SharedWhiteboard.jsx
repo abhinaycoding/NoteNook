@@ -21,8 +21,8 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect()
       setToolbarPos({
-        x: width - 80, 
-        y: (height - 480) / 2
+        x: Math.max(10, width - 70), 
+        y: Math.max(10, (height - 480) / 2)
       })
     }
   }, [])
@@ -54,8 +54,8 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
     let newY = (clientY - rect.top) - dragOffset.current.y
     
     // Smooth bounding box relative to container
-    newX = Math.max(10, Math.min(newX, rect.width - 65))
-    newY = Math.max(10, Math.min(newY, rect.height - 490))
+    newX = Math.max(10, Math.min(newX, rect.width - 55))
+    newY = Math.max(10, Math.min(newY, rect.height - Math.min(490, rect.height - 20)))
     
     setToolbarPos({ x: newX, y: newY })
   }, [])
@@ -146,7 +146,6 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
   }
 
   const startDrawing = (e) => {
-    e.preventDefault() // prevent scrolling on touch
     const { x, y } = getCoordinates(e)
     isDrawing.current = true
     
@@ -158,7 +157,6 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
 
   const draw = (e) => {
     if (!isDrawing.current || !ctxRef.current) return
-    e.preventDefault()
 
     const { x, y } = getCoordinates(e)
     const ctx = ctxRef.current

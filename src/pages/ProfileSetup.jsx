@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Navigation from '../components/Navigation'
+import { ARCHETYPES } from '../constants/archetypes'
 
 const ProfileSetup = ({ onNavigate, user }) => {
   const [studentType, setStudentType] = useState('High School')
   const [targetExam, setTargetExam] = useState('')
   const [goals, setGoals] = useState('')
+  const [avatarId, setAvatarId] = useState('owl')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -21,6 +23,7 @@ const ProfileSetup = ({ onNavigate, user }) => {
           student_type: studentType,
           target_exam: targetExam,
           goals: goals,
+          avatar_id: avatarId,
           updated_at: new Date()
         })
         .eq('id', user.id)
@@ -97,6 +100,27 @@ const ProfileSetup = ({ onNavigate, user }) => {
                 />
               </div>
 
+              <div className="flex flex-col gap-4">
+                <label className="text-xs uppercase tracking-widest font-bold">Choose Your Academic Persona</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {ARCHETYPES.map((arch) => (
+                    <button
+                      key={arch.id}
+                      type="button"
+                      onClick={() => setAvatarId(arch.id)}
+                      className={`flex flex-col items-center p-3 border rounded-lg transition-all ${
+                        avatarId === arch.id 
+                          ? 'border-primary bg-primary text-cream scale-105 shadow-md' 
+                          : 'border-border bg-white hover:border-muted'
+                      }`}
+                    >
+                      <span className="text-2xl mb-1">{arch.emoji}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-tight text-center">{arch.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <button 
                 type="submit" 
                 disabled={loading}

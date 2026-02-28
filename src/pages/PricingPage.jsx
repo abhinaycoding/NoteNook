@@ -3,6 +3,7 @@ import Navigation from '../components/Navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlan } from '../contexts/PlanContext';
 import { useToast } from '../contexts/ToastContext';
+import { supabase } from '../lib/supabase';
 import './PricingPage.css';
 
 const PricingPage = ({ onNavigate }) => {
@@ -16,14 +17,16 @@ const PricingPage = ({ onNavigate }) => {
       onNavigate('auth');
       return;
     }
-    
+
     setLoading(true);
     try {
-      await upgradePlan();
-      toast('Welcome to the Pro tier. All features unlocked.', 'success');
-    } catch (error) {
-      toast('Failed to process upgrade.', 'error');
-      console.error(error);
+      if (upgradePlan) {
+        await upgradePlan(); // Calling the fallback plan which updates context & Supabase
+      }
+      toast('Welcome to the Master tier. All features unlocked!', 'success');
+    } catch (err) {
+      console.error('Upgrade error:', err);
+      toast('Failed to upgrade plan. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -41,7 +44,7 @@ const PricingPage = ({ onNavigate }) => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="pricing-grid">
           {/* Neo-Brutalist Free Tier Card */}
           <div className="brutal-card group">
             <div className="brutal-header" style={{ backgroundColor: '#262626', padding: '3.5rem 2rem' }}>
@@ -150,7 +153,7 @@ const PricingPage = ({ onNavigate }) => {
               <div className="brutal-footer z-10 relative">
                 <div className="brutal-price">
                   <span className="currency">₹</span>
-                  <span className="amount">199</span>
+                  <span className="amount">99</span>
                   <div className="period">per month</div>
                 </div>
 

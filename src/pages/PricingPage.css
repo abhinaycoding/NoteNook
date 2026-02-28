@@ -213,3 +213,19 @@
   background-color: #e5e5e5;
   color: #000;
 }
+
+/* ── Custom Responsive Pricing Grid ── */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

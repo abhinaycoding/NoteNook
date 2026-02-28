@@ -1,0 +1,165 @@
+.aura-splash-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-color);
+  z-index: 10000;
+  overflow: hidden;
+}
+
+/* ── Grain Texture Overlay ── */
+.aura-grain-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ── Neural Glow ── */
+.aura-neural-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+  opacity: 0.12;
+  filter: blur(100px);
+  animation: glow-float 8s ease-in-out infinite alternate;
+}
+
+@keyframes glow-float {
+  0% { transform: translate(-30px, -20px) scale(1.0); }
+  100% { transform: translate(30px, 20px) scale(1.15); }
+}
+
+/* ── Glass Hub ── */
+.aura-hub {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-card) 15%, transparent);
+  backdrop-filter: blur(25px);
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  box-shadow: 
+    0 0 60px color-mix(in srgb, var(--primary) 12%, transparent),
+    inset 0 0 30px color-mix(in srgb, var(--primary) 8%, transparent);
+  animation: hub-float 5s ease-in-out infinite alternate;
+  z-index: 10;
+}
+
+@keyframes hub-float {
+  0% { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(-12px) rotate(2deg); }
+}
+
+/* ── High-End Logo Typography ── */
+.aura-logo-text {
+  font-family: var(--font-serif);
+  font-size: 3rem;
+  color: var(--primary);
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: -0.08em;
+  text-shadow: 0 0 15px color-mix(in srgb, var(--primary) 40%, transparent);
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,0.1));
+  animation: logo-reveal 1.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes logo-reveal {
+  0% { opacity: 0; transform: scale(0.9) translateY(10px); filter: blur(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
+/* ── Kinetic Typography: Brand Reveal ── */
+.aura-brand-container {
+  display: flex;
+  gap: 0.15em;
+  margin-top: 3rem;
+  z-index: 10;
+}
+
+.aura-brand-letter {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4em;
+  color: var(--text-primary);
+  font-weight: 400;
+  opacity: 0;
+  display: inline-block;
+  transform: translateY(15px);
+  filter: blur(5px);
+  animation: letter-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes letter-reveal {
+  0% { opacity: 0; transform: translateY(15px); filter: blur(5px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.aura-loader-bar {
+  width: 120px;
+  height: 1px;
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+  overflow: hidden;
+  margin: 2rem 0;
+  opacity: 0;
+  animation: aura-stagger-reveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards;
+  z-index: 10;
+}
+
+.aura-loader-fill {
+  width: 60%;
+  height: 100%;
+  background: var(--primary);
+  animation: loader-flow 2.5s ease-in-out infinite;
+  box-shadow: 0 0 10px var(--primary);
+}
+
+@keyframes loader-flow {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.aura-neural-status {
+  z-index: 10;
+  opacity: 0;
+  animation: aura-stagger-reveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) 1.5s forwards;
+}
+
+.aura-pulse-text {
+  font-family: var(--font-sans);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--text-secondary);
+  animation: text-breathe 2s ease-in-out infinite alternate;
+}
+
+@keyframes text-breathe {
+  0% { opacity: 0.4; letter-spacing: 0.25em; }
+  100% { opacity: 1; letter-spacing: 0.35em; }
+}
+
+@keyframes aura-stagger-reveal {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Floating Neural Nodes ── */
+.aura-node-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--primary);
+  filter: blur(30px);
+  opacity: 0.04;
+  pointer-events: none;
+}

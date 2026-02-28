@@ -4,6 +4,7 @@ import './Navigation.css'
 
 const Navigation = ({ onNavigate, isAuthPage }) => {
   const [scrolled, setScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user } = useAuth()
 
   useEffect(() => {
@@ -51,16 +52,32 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
         {/* Right: Actions */}
         {!isAuthPage && (
           <div className="nav-actions">
-            <button className="text-sm font-medium uppercase tracking-wide hover:italic" onClick={handleLogin}>
+            <button className="text-sm font-medium uppercase tracking-wide hover:italic hidden-mobile-action" onClick={handleLogin}>
               {user ? 'dashboard' : 'Log In'}
             </button>
             <button className="btn-primary ml-4" onClick={handleBegin}>
               {user ? 'Open App' : 'Begin'}
             </button>
+            <button 
+              className="mobile-nav-hamburger" 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? '×' : '☰'}
+            </button>
           </div>
         )}
 
       </div>
+
+      {/* Mobile Dropdown */}
+      {!isAuthPage && mobileMenuOpen && (
+        <div className="mobile-dropdown-menu">
+          <button className="nav-item" onClick={() => { scrollTo('manifesto'); setMobileMenuOpen(false); }}>Manifesto</button>
+          <button className="nav-item" onClick={() => { scrollTo('tools'); setMobileMenuOpen(false); }}>The Tools</button>
+          <button className="nav-item" onClick={() => { scrollTo('subscribe'); setMobileMenuOpen(false); }}>Subscribe</button>
+          <button className="nav-item" onClick={handleLogin}>{user ? 'Dashboard' : 'Log In'}</button>
+        </div>
+      )}
     </header>
   )
 }

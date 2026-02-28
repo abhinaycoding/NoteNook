@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
-import { supabase } from './supabase'
+import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
 const TimerContext = createContext({})
@@ -27,6 +27,12 @@ export const TimerProvider = ({ children }) => {
           clearInterval(intervalRef.current)
           setIsRunning(false)
           setIsComplete(true)
+          
+          // Play Completion Chime
+          const chime = new Audio('https://cdn.pixabay.com/audio/2021/08/04/audio_145d5a6f9f.mp3')
+          chime.volume = 0.5
+          chime.play().catch(e => console.log("Audio blocked by browser:", e))
+          
           return 0
         }
         return prev - 1
@@ -46,7 +52,9 @@ export const TimerProvider = ({ children }) => {
       duration_seconds: selectedMinutes * 60,
       completed: true,
       created_at: new Date().toISOString(),
-    }]).catch(err => console.error('Session save error:', err.message))
+    }]).then(() => {
+      window.dispatchEvent(new CustomEvent('session-saved', { detail: { duration: selectedMinutes * 60 } }))
+    }).catch(err => console.error('Session save error:', err.message))
   }, [isComplete, user, selectedMinutes, sessionSaved])
 
   const start = () => {

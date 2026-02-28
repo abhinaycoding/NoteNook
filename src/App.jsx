@@ -15,6 +15,7 @@ import StudyRoomPage from './pages/StudyRoomPage'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
 import Loader from './components/Loader'
+import ZenMode from './components/ZenMode'
 import { useAuth } from './contexts/AuthContext'
 import { useTheme } from './contexts/ThemeContext'
 import './App.css'
@@ -147,7 +148,11 @@ function App() {
             <ResumeBuilderPage onNavigate={navigateTo} />
           </ProGate>
         )}
+
       </div>
+
+      {/* Global Cinematic Overlay (conditional display inside) */}
+      <ZenMode />
     </>
   )
 }

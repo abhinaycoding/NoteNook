@@ -1,65 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useZen } from '../contexts/ZenContext'
+import { useTimer } from '../contexts/TimerContext'
 import Confetti from './Confetti'
 import './FocusTimer.css'
-
-const PRESETS = [25, 45, 60]
-
-// ── Module-level timer state (survives page navigation) ──
-let _selected = 25
-let _left = 25 * 60
-let _running = false
-let _done = false
-let _saved = false
-let _timerId = null
-let _subs = []
-const notify = () => _subs.forEach(fn => fn())
-
-const timerStart = () => {
-  if (_done) { _left = _selected * 60; _done = false; _saved = false }
-  if (_running) return
-  _running = true
-  clearInterval(_timerId)
-  _timerId = setInterval(() => {
-    if (_left <= 1) {
-      clearInterval(_timerId)
-      _left = 0; _running = false; _done = true
-    } else {
-      _left -= 1
-    }
-    notify()
-  }, 1000)
-  notify()
-}
-
-const timerPause = () => {
-  clearInterval(_timerId)
-  _running = false
-  notify()
-}
-
-const timerReset = () => {
-  clearInterval(_timerId)
-  _running = false; _done = false; _saved = false
-  _left = _selected * 60
-  notify()
-}
-
-const timerPreset = (min) => {
-  if (_running) return
-  clearInterval(_timerId)
-  _selected = min; _left = min * 60
-  _running = false; _done = false; _saved = false
-  notify()
-}
 
 const FocusTimer = () => {
   const { user } = useAuth()
   const toast = useToast()
-  const [, tick] = useState(0)
+  const { enterZenMode } = useZen()
+  const {
+    selectedMinutes,
+    secondsLeft,
+    isRunning,
+    isComplete,
+    sessionSaved,
+    start,
+    pause,
+    reset,
+    changePreset,
+    PRESETS
+  } = useTimer()
+  
   const [showConfetti, setShowConfetti] = useState(false)
   const prevDone = useRef(false)
 
@@ -68,48 +32,27 @@ const FocusTimer = () => {
     {
       key: ' ', // Space
       action: () => {
-        if (_done) timerReset()
-        else if (_running) timerPause()
-        else timerStart()
+        if (isComplete) reset()
+        else if (isRunning) pause()
+        else start()
       }
     }
   ])
 
-  useEffect(() => {
-    const fn = () => tick(n => n + 1)
-    _subs.push(fn)
-    return () => { _subs = _subs.filter(s => s !== fn) }
-  }, [])
-
-  useEffect(() => {
-    if (_done && user && !_saved) {
-      _saved = true
-      supabase.from('sessions').insert([{
-        user_id: user.id,
-        duration_seconds: _selected * 60,
-        completed: true,
-        created_at: new Date().toISOString(),
-      }]).then(({ error }) => {
-        if (!error) toast(`${_selected}m session logged. Well done, Scholar.`, 'success', 4000)
-      }).catch(e => console.error(e.message))
-    }
-  }, [user, toast])
-
   // Trigger confetti on session complete
   useEffect(() => {
-    if (_done && !prevDone.current) {
+    if (isComplete && !prevDone.current) {
       setTimeout(() => setShowConfetti(true), 0)
       setTimeout(() => setShowConfetti(false), 3500)
     }
-    prevDone.current = _done
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [_done])
+    prevDone.current = isComplete
+  }, [isComplete])
 
-  const mm = Math.floor(_left / 60).toString().padStart(2, '0')
-  const ss = (_left % 60).toString().padStart(2, '0')
-  const progress = (_selected * 60 - _left) / (_selected * 60)
-  const label = _done ? 'Restart' : (_left < _selected * 60 && !_running) ? 'Resume' : 'Commence'
-  const stateLabel = _done ? 'Done' : _running ? 'ON' : '—'
+  const mm = Math.floor(secondsLeft / 60).toString().padStart(2, '0')
+  const ss = (secondsLeft % 60).toString().padStart(2, '0')
+  const progress = (selectedMinutes * 60 - secondsLeft) / (selectedMinutes * 60)
+  const label = isComplete ? 'Restart' : (secondsLeft < selectedMinutes * 60 && !isRunning) ? 'Resume' : 'Commence'
+  const stateLabel = isComplete ? 'Done' : isRunning ? 'ON' : '—'
 
   // SVG arc
   const R = 44
@@ -118,26 +61,35 @@ const FocusTimer = () => {
 
   const digitClass = [
     'timer-digits',
-    _running ? 'timer-digits--running' : '',
-    _done ? 'timer-digits--done' : '',
+    isRunning ? 'timer-digits--running' : '',
+    isComplete ? 'timer-digits--done' : '',
   ].join(' ')
 
   return (
     <div className="timer-widget">
       <Confetti active={showConfetti} />
 
-      {/* Preset chips */}
-      <div className="timer-presets">
-        {PRESETS.map(min => (
-          <button
-            key={min}
-            onClick={() => timerPreset(min)}
-            disabled={_running}
-            className={`timer-preset-btn ${_selected === min ? 'active' : ''}`}
-          >
-            {min}m
-          </button>
-        ))}
+      {/* Preset chips and Zen Mode trigger */}
+      <div className="timer-presets" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {PRESETS.map(min => (
+            <button
+              key={min}
+              onClick={() => changePreset(min)}
+              disabled={isRunning}
+              className={`timer-preset-btn ${selectedMinutes === min ? 'active' : ''}`}
+            >
+              {min}m
+            </button>
+          ))}
+        </div>
+        <button 
+          onClick={() => enterZenMode(selectedMinutes)}
+          className="timer-preset-btn"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
+        >
+          <span style={{ fontSize: '0.8rem' }}>🎧</span> Zen Mode
+        </button>
       </div>
 
       {/* Main display: arc ring + big digits side by side */}
@@ -147,7 +99,7 @@ const FocusTimer = () => {
           <svg className="timer-arc-svg" viewBox="0 0 100 100">
             <circle className="timer-arc-track" cx="50" cy="50" r={R} />
             <circle
-              className={`timer-arc-fill ${_done ? 'timer-arc-fill--done' : ''}`}
+              className={`timer-arc-fill ${isComplete ? 'timer-arc-fill--done' : ''}`}
               cx="50" cy="50" r={R}
               strokeDasharray={CIRC}
               strokeDashoffset={offset}
@@ -160,11 +112,11 @@ const FocusTimer = () => {
         <div className="timer-digits-block">
           <div className={digitClass}>
             {mm}
-            <span className={`timer-colon ${!_running ? 'timer-colon--paused' : ''}`}>:</span>
+            <span className={`timer-colon ${!isRunning ? 'timer-colon--paused' : ''}`}>:</span>
             {ss}
           </div>
           <div className="timer-session-info">
-            {_selected}min · {_done ? 'Session complete' : _running ? 'Focusing…' : 'Ready to begin'}
+            {selectedMinutes}min · {isComplete ? 'Session complete' : isRunning ? 'Focusing…' : 'Ready to begin'}
           </div>
         </div>
       </div>
@@ -172,26 +124,26 @@ const FocusTimer = () => {
       {/* Progress bar */}
       <div className="timer-bar-track">
         <div
-          className={`timer-bar-fill ${_running ? 'timer-bar-fill--running' : ''}`}
+          className={`timer-bar-fill ${isRunning ? 'timer-bar-fill--running' : ''}`}
           style={{
             width: `${progress * 100}%`,
-            backgroundColor: _done ? 'var(--accent)' : 'var(--primary)'
+            backgroundColor: isComplete ? 'var(--accent)' : 'var(--primary)'
           }}
         />
       </div>
 
-      {_done && (
+      {isComplete && (
         <p className="timer-done-msg">
-          {_saved ? '✓ Session logged to Analytics.' : 'Session complete!'}
+          {sessionSaved ? '✓ Session logged to Analytics.' : 'Session complete!'}
         </p>
       )}
 
       {/* Controls */}
       <div className="timer-controls">
-        <button onClick={timerReset} className="timer-btn">Reset</button>
-        {_running
-          ? <button onClick={timerPause} className="timer-btn timer-btn-pause">Pause</button>
-          : <button onClick={timerStart} className="timer-btn timer-btn-primary">{label}</button>
+        <button onClick={reset} className="timer-btn">Reset</button>
+        {isRunning
+          ? <button onClick={pause} className="timer-btn timer-btn-pause">Pause</button>
+          : <button onClick={start} className="timer-btn timer-btn-primary">{label}</button>
         }
       </div>
 

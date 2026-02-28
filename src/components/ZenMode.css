@@ -1,0 +1,233 @@
+/* ── ZenMode Cinematic Overlay ── */
+
+.zen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 500000;
+  background-color: var(--bg-color); /* Matches theme but can be overridden */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3vh 4vw;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease-in-out;
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+  user-select: none;
+}
+
+.zen-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Backdrop Ambience ── */
+.zen-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+  background: radial-gradient(circle at center, rgba(30, 30, 30, 0.05) 0%, rgba(10, 10, 10, 0.8) 100%);
+}
+
+.dark .zen-backdrop {
+  background: radial-gradient(circle at center, rgba(10, 10, 10, 0.4) 0%, rgba(0, 0, 0, 0.95) 100%);
+}
+
+/* Slow moving orbs for cinematic effect */
+.zen-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  animation: floatOrb 20s infinite alternate ease-in-out;
+}
+
+.orb-1 {
+  width: 60vw;
+  height: 60vw;
+  background: var(--primary);
+  top: -20%;
+  left: -10%;
+}
+
+.orb-2 {
+  width: 50vw;
+  height: 50vw;
+  background: var(--accent);
+  bottom: -10%;
+  right: -20%;
+  animation-delay: -5s;
+}
+
+@keyframes floatOrb {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(5%, 10%) scale(1.1); }
+  100% { transform: translate(-5%, -5%) scale(0.95); }
+}
+
+/* ── Top Header ── */
+.zen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.zen-brand {
+  font-size: 1.5rem;
+  font-style: italic;
+  letter-spacing: 0.05em;
+}
+
+.zen-exit-focus-action {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 0.75rem 2rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  cursor: pointer !important;
+  pointer-events: all !important;
+  z-index: 1000 !important;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+}
+
+.zen-exit-focus-action:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+/* ── Center Timer ── */
+.zen-center {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  z-index: 10;
+  transform: translateY(-5vh); /* slight optical centering */
+}
+
+.zen-timer-display {
+  font-family: var(--font-sans);
+  font-size: clamp(6rem, 15vw, 12rem);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  user-select: none;
+}
+
+.zen-timer-display:hover {
+  transform: scale(1.02);
+  opacity: 0.8;
+}
+
+.zen-timer-label {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* ── Bottom Audio Dock ── */
+.zen-audio-dock {
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-bottom: 2vh;
+}
+
+.zen-audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  border-radius: 100px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+}
+
+.dark .zen-audio-controls {
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.zen-play-btn {
+  background: var(--text-primary);
+  color: var(--bg-color);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.zen-play-btn:hover {
+  transform: scale(1.1);
+}
+
+.zen-track-select {
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  padding: 0.5rem;
+}
+
+.zen-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.zen-volume-slider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.zen-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+}

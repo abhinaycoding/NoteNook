@@ -9,30 +9,57 @@ export function PlanProvider({ children }) {
   const { user } = useAuth()
   const [isPro, setIsPro] = useState(false)
 
-  // Load plan from localStorage (keyed per user)
+  // Load plan from Supabase profile
   useEffect(() => {
-    if (user) {
-      const stored = localStorage.getItem(`ff_plan_${user.id}`)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsPro(stored === 'pro')
-    } else {
-      setIsPro(false)
+    let sub = null
+
+    const fetchPlan = async () => {
+      if (!user) {
+        setIsPro(false)
+        return
+      }
+
+      // Initial fetch
+      const { data } = await supabase
+        .from('profiles')
+        .select('is_pro')
+        .eq('id', user.id)
+        .single()
+      
+      setIsPro(!!data?.is_pro)
+
+      // Listen for updates (e.g. from Stripe Webhook)
+      sub = supabase
+        .channel(`profile_plan:${user.id}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        }, (payload) => {
+          setIsPro(!!payload.new.is_pro)
+        })
+        .subscribe()
+    }
+
+    fetchPlan()
+
+    return () => {
+      if (sub) supabase.removeChannel(sub)
     }
   }, [user])
 
-  const upgradePlan = async () => {
+  // Stub function for direct UI tests if needed (actual upgrades happen via Stripe Webhook)
+  const upgradePlanFallback = async () => {
     if (!user) return
-    localStorage.setItem(`ff_plan_${user.id}`, 'pro')
     setIsPro(true)
-    // Best-effort Supabase update — won't fail if column doesn't exist yet
     try {
       await supabase.from('profiles').update({ is_pro: true }).eq('id', user.id)
     } catch { /* best-effort */ }
   }
 
-  const downgradePlan = async () => {
+  const downgradePlanFallback = async () => {
     if (!user) return
-    localStorage.setItem(`ff_plan_${user.id}`, 'free')
     setIsPro(false)
     try {
       await supabase.from('profiles').update({ is_pro: false }).eq('id', user.id)
@@ -40,7 +67,11 @@ export function PlanProvider({ children }) {
   }
 
   return (
-    <PlanContext.Provider value={{ isPro, upgradePlan, downgradePlan }}>
+    <PlanContext.Provider value={{ 
+        isPro, 
+        upgradePlan: upgradePlanFallback, 
+        downgradePlan: downgradePlanFallback 
+    }}>
       {children}
     </PlanContext.Provider>
   )

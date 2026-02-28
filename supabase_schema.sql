@@ -7,7 +7,9 @@ CREATE TABLE profiles (
   full_name TEXT,
   student_type TEXT, -- e.g., 'High School', 'University', 'Competitive Exam'
   target_exam TEXT,  -- e.g., 'JEE', 'NEET', 'UPSC'
-  goals TEXT
+  goals TEXT,
+  is_pro BOOLEAN DEFAULT false,
+  stripe_customer_id TEXT
 );
 
 -- Note: We want to trigger a profile creation automatically when a new user signs up in Auth.

@@ -110,6 +110,7 @@
   border-bottom: 1px dashed var(--border);
   font-family: var(--font-serif);
   font-size: 1.25rem;
+  color: var(--text-primary);
   outline: none;
   padding: 0.35rem 0;
 }
@@ -128,7 +129,7 @@
   padding: 0.25rem 0.5rem;
   outline: none;
   font-family: var(--font-sans);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 .btn-add-confirm {
   font-size: 0.7rem;
@@ -177,6 +178,7 @@
 .ledger-title {
   font-family: var(--font-serif);
   font-size: 1.5rem;
+  color: var(--text-primary);
   flex-grow: 1;
 }
 
