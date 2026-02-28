@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import Navigation from '../components/Navigation'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import Loader from '../components/Loader'
 
@@ -14,6 +15,7 @@ const AuthPage = ({ onNavigate }) => {
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const { setLocalSession } = useAuth()
+  const { t } = useTranslation()
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
@@ -83,14 +85,14 @@ const AuthPage = ({ onNavigate }) => {
         if (error) throw error
 
         if (data?.user?.identities?.length === 0) {
-          throw new Error('An account with this email already exists. Please log in instead.')
+          throw new Error(t('auth.accountExists'))
         }
 
         if (data.session) {
           await supabase.auth.signOut()
         }
 
-        setSuccessMsg('✓ Account created! Please check your inbox for a verification email and click the link to activate your account. Then come back and log in.')
+        setSuccessMsg(t('auth.signupSuccess'))
         setEmail('')
         setPassword('')
         setFullName('')
@@ -116,15 +118,15 @@ const AuthPage = ({ onNavigate }) => {
           
           <div className="border border-ink p-16 bg-cream relative">
             <h2 className="text-5xl font-serif mb-4 text-center">
-              {isLogin ? 'Enter the Canvas.' : 'Procure Pass.'}
+              {isLogin ? t('auth.loginTitle') : t('auth.signupTitle')}
             </h2>
             <p className="text-xs text-muted text-center uppercase tracking-widest mb-12">
-              {isLogin ? 'Authenticate your credentials' : 'Join the distraction-free ledger'}
+              {isLogin ? t('auth.loginSubtitle') : t('auth.signupSubtitle')}
             </p>
 
             {errorMsg && (
               <div className="mb-6 p-4 border border-red-500/50 bg-red-900/10 text-red-400 text-sm font-medium">
-                <strong>Auth Error:</strong> {errorMsg}
+                <strong>{t('auth.authError')}</strong> {errorMsg}
               </div>
             )}
             
@@ -146,43 +148,43 @@ const AuthPage = ({ onNavigate }) => {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
-              <span>{loading ? 'Connecting...' : (isLogin ? 'Continue with Google' : 'Sign up with Google')}</span>
+              <span>{loading ? t('auth.connecting') : (isLogin ? t('auth.googleContinue') : t('auth.googleSignup'))}</span>
             </button>
 
             {/* Divider */}
             <div className="auth-divider">
-              <span>or continue with email</span>
+              <span>{t('auth.orContinueEmail')}</span>
             </div>
 
             <form onSubmit={handleAuth} className="flex flex-col gap-6">
                 {!isLogin && (
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs uppercase tracking-widest font-bold">Full Name</label>
+                    <label className="text-xs uppercase tracking-widest font-bold">{t('auth.fullName')}</label>
                     <input 
                       type="text" 
                       required 
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
-                      placeholder="Your Name"
+                      placeholder={t('auth.fullNamePlaceholder')}
                     />
                   </div>
                 )}
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-widest font-bold">Email</label>
+                  <label className="text-xs uppercase tracking-widest font-bold">{t('auth.email')}</label>
                   <input 
                     type="email" 
                     required 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
-                    placeholder="scholar@example.com"
+                    placeholder={t('auth.emailPlaceholder')}
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-widest font-bold">Password</label>
+                  <label className="text-xs uppercase tracking-widest font-bold">{t('auth.password')}</label>
                   <input 
                     type="password" 
                     required 
@@ -198,7 +200,7 @@ const AuthPage = ({ onNavigate }) => {
                   disabled={loading}
                   className="btn-primary w-full mt-4 justify-center py-4 text-sm cursor-pointer hover:bg-primary transition-colors"
                 >
-                  {loading ? 'Authenticating...' : (isLogin ? 'Log In' : 'Sign Up')}
+                  {loading ? t('auth.authenticating') : (isLogin ? t('auth.logInBtn') : t('auth.signUpBtn'))}
                 </button>
               </form>
 
@@ -207,7 +209,7 @@ const AuthPage = ({ onNavigate }) => {
                 onClick={() => setIsLogin(!isLogin)} 
                 className="text-xs uppercase tracking-widest text-muted hover:text-primary transition-colors hover:italic cursor-pointer"
               >
-                {isLogin ? "Don't have a pass? Sign up here." : "Already have a pass? Log in."}
+                {isLogin ? t('auth.noPassSignup') : t('auth.havePassLogin')}
               </button>
             </div>
 
@@ -216,8 +218,8 @@ const AuthPage = ({ onNavigate }) => {
       </main>
 
       <footer className="container py-8 flex justify-between uppercase tracking-widest text-xs font-bold border-t border-ink mt-auto">
-        <div>NoteNook Publishing © 2026</div>
-        <div>All Rights Reserved</div>
+        <div>{t('auth.copyright')} © 2026</div>
+        <div>{t('auth.allRights')}</div>
       </footer>
 
     </div>
@@ -225,4 +227,3 @@ const AuthPage = ({ onNavigate }) => {
 }
 
 export default AuthPage
-

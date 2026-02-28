@@ -5,6 +5,8 @@ import { useToast } from '../contexts/ToastContext'
 import { usePlan } from '../contexts/PlanContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
+import { useTranslation } from '../contexts/LanguageContext'
+import { EmptyLedger } from './EmptyStateIllustrations'
 import ProGate from './ProGate'
 import '../pages/Dashboard.css'
 
@@ -15,6 +17,7 @@ const TaskPlanner = () => {
   const { isPro } = usePlan()
   const toast = useToast()
   const { addNotification } = useNotifications()
+  const { t } = useTranslation()
   const [tasks, setTasks] = useState([])
   const hasReachedLimit = !isPro && tasks.length >= 20
   const [loading, setLoading] = useState(false)
@@ -86,34 +89,34 @@ const TaskPlanner = () => {
       .then(({ data, error }) => {
         if (error) {
           setTasks(prev => prev.filter(t => t.id !== tempId))
-          toast('Failed to add task.', 'error')
+          toast(t('tasks.taskFailed'), 'error')
           return
         }
         setTasks(prev => prev.map(t => t.id === tempId ? data : t))
-        toast('Task added to the Ledger.', 'success')
+        toast(t('tasks.taskAdded'), 'success')
         window.dispatchEvent(new CustomEvent('task-updated', { detail: { added: true } }))
       })
   }
 
   const toggleTask = async (id, current) => {
     // Optimistic UI update
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: !current } : t))
+    setTasks(prev => prev.map(tk => tk.id === id ? { ...tk, completed: !current } : tk))
     window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: !current } }))
 
     const { error } = await supabase.from('tasks').update({ completed: !current }).eq('id', id)
     
     if (error) {
       // Revert on failure
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: current } : t))
+      setTasks(prev => prev.map(tk => tk.id === id ? { ...tk, completed: current } : tk))
       window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: current } }))
-      toast('Failed to update task sync.', 'error')
+      toast(t('tasks.taskSyncFailed'), 'error')
       console.error(error)
       return
     }
 
     if (!current) {
-      toast('Task marked complete.', 'success')
-      addNotification('Task Complete', 'Excellent work! One step closer to your goals.', 'success')
+      toast(t('tasks.taskComplete'), 'success')
+      addNotification('Task Complete', t('tasks.taskCompleteNotif'), 'success')
       
       // Play Task Completion Sound
       const pop = new Audio('https://cdn.pixabay.com/audio/2022/03/10/audio_f3152ef32d.mp3')
@@ -123,9 +126,9 @@ const TaskPlanner = () => {
   }
 
   const deleteTask = (id) => {
-    setTasks(prev => prev.filter(t => t.id !== id))
+    setTasks(prev => prev.filter(tk => tk.id !== id))
     supabase.from('tasks').delete().eq('id', id)
-    toast('Task removed from the Ledger.', 'info')
+    toast(t('tasks.taskRemoved'), 'info')
     window.dispatchEvent(new CustomEvent('task-updated', { detail: { deleted: true, id } }))
   }
 
@@ -135,14 +138,14 @@ const TaskPlanner = () => {
     const title = editTitle.trim()
     setEditingId(null)
     if (!title) return
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, title } : t))
+    setTasks(prev => prev.map(tk => tk.id === id ? { ...tk, title } : tk))
     supabase.from('tasks').update({ title }).eq('id', id)
-    toast('Task updated.', 'success')
+    toast(t('tasks.taskUpdated'), 'success')
     window.dispatchEvent(new CustomEvent('task-updated', { detail: { updated: true, id } }))
   }
 
-  const incomplete = tasks.filter(t => !t.completed)
-  const done = tasks.filter(t => t.completed)
+  const incomplete = tasks.filter(tk => !tk.completed)
+  const done = tasks.filter(tk => tk.completed)
 
   return (
     <div className="ledger-container">
@@ -163,7 +166,7 @@ const TaskPlanner = () => {
               if (e.key === 'Enter') addTask()
               if (e.key === 'Escape') { setIsAdding(false); setNewTitle('') }
             }}
-            placeholder="What needs to be done?"
+            placeholder={t('tasks.whatNeedsDone')}
             className="add-task-input"
           />
           <div className="add-task-controls" style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
@@ -172,26 +175,26 @@ const TaskPlanner = () => {
               value={newDeadline}
               onChange={e => setNewDeadline(e.target.value)}
               className="priority-select"
-              title="Deadline"
+              title={t('tasks.deadline')}
             />
             <select
               value={newPriority}
               onChange={e => setNewPriority(e.target.value)}
               className="priority-select"
             >
-              <option value="low">Low Priority</option>
-              <option value="medium">Medium Priority</option>
-              <option value="high">High Priority</option>
-              <option value="urgent">Urgent</option>
+              <option value="low">{t('tasks.lowPriority')}</option>
+              <option value="medium">{t('tasks.mediumPriority')}</option>
+              <option value="high">{t('tasks.highPriority')}</option>
+              <option value="urgent">{t('tasks.urgent')}</option>
             </select>
-            <button onClick={addTask} className="btn-add-confirm">✓ Add</button>
-            <button onClick={() => { setIsAdding(false); setNewTitle('') }} className="btn-add-cancel">Cancel</button>
+            <button onClick={addTask} className="btn-add-confirm">{t('tasks.add')}</button>
+            <button onClick={() => { setIsAdding(false); setNewTitle('') }} className="btn-add-cancel">{t('tasks.cancel')}</button>
           </div>
         </div>
       ) : (
         <button onClick={() => setIsAdding(true)} className="add-task-trigger">
           <span className="add-task-plus">+</span>
-          <span>Add a task</span>
+          <span>{t('tasks.addTask')}</span>
         </button>
       )}
 
@@ -207,9 +210,9 @@ const TaskPlanner = () => {
       {/* ── Empty State ── */}
       {!loading && tasks.length === 0 && (
         <div className="text-center py-8 opacity-70">
-          <div className="text-4xl mb-3">📝</div>
-          <p className="font-serif italic text-lg">Your ledger is clear.</p>
-          <p className="text-xs mt-1 uppercase tracking-widest text-muted">Add your first task above.</p>
+          <EmptyLedger size={100} />
+          <p className="font-serif italic text-lg mt-3">{t('tasks.emptyTitle')}</p>
+          <p className="text-xs mt-1 uppercase tracking-widest text-muted">{t('tasks.emptySubtitle')}</p>
         </div>
       )}
 
@@ -238,21 +241,21 @@ const TaskPlanner = () => {
               className="ledger-title cursor-pointer"
               onClick={() => toggleTask(task.id, task.completed)}
               onDoubleClick={() => startEdit(task)}
-              title="Double-click to edit"
+              title={t('tasks.doubleClickEdit')}
             >
               {task.title}
-              {task.priority === 'urgent' && <span className="pro-lock-badge" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>URGENT</span>}
+              {task.priority === 'urgent' && <span className="pro-lock-badge" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>{t('tasks.urgent').toUpperCase()}</span>}
             </div>
           )}
           <div className="ledger-meta flex flex-col items-end gap-1">
             {task.deadline_at && (
               <span style={{ fontSize: '0.55rem', opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.05em', color: new Date(task.deadline_at) < new Date() ? 'var(--danger)' : 'var(--text-secondary)' }}>
-                DUE: {new Date(task.deadline_at).toLocaleDateString()}
+                {t('tasks.due')} {new Date(task.deadline_at).toLocaleDateString()}
               </span>
             )}
             <div className="flex items-center gap-2 mt-1">
-              <button onClick={() => startEdit(task)} title="Edit" style={{ opacity: 0.4, fontSize: '0.8rem' }}>✎</button>
-              <button onClick={() => deleteTask(task.id)} title="Delete" style={{ opacity: 0.4, fontSize: '1rem' }}>×</button>
+              <button onClick={() => startEdit(task)} title={t('tasks.edit')} style={{ opacity: 0.4, fontSize: '0.8rem' }}>✎</button>
+              <button onClick={() => deleteTask(task.id)} title={t('tasks.delete')} style={{ opacity: 0.4, fontSize: '1rem' }}>×</button>
             </div>
           </div>
         </div>
@@ -262,7 +265,7 @@ const TaskPlanner = () => {
       {done.length > 0 && (
         <div style={{ marginTop: '1.5rem', opacity: 0.45 }}>
           <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
-            Completed ({done.length})
+            {t('tasks.completed')} ({done.length})
           </div>
           {done.map(task => (
             <div key={task.id} className="ledger-row" style={{ alignItems: 'center' }}>
@@ -277,7 +280,7 @@ const TaskPlanner = () => {
                 {task.title}
               </div>
               <div className="ledger-meta">
-                <button onClick={() => deleteTask(task.id)} title="Delete" style={{ opacity: 0.5, fontSize: '1rem' }}>×</button>
+                <button onClick={() => deleteTask(task.id)} title={t('tasks.delete')} style={{ opacity: 0.5, fontSize: '1rem' }}>×</button>
               </div>
             </div>
           ))}

@@ -1,5 +1,121 @@
 /* Editorial Layout System */
 
+/* ── Hero Animated Background ── */
+.hero-section {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cursor spotlight overlay */
+.hero-spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.06;
+  transition: opacity 0.3s ease;
+  mix-blend-mode: screen;
+}
+
+/* 3D text enhancement */
+.hero-3d-text {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* Disable mouse effects on mobile */
+@media (hover: none) {
+  .hero-spotlight { display: none; }
+  .hero-3d-text { transform: none !important; }
+}
+
+.hero-bg {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Each orb wrapper must fill the bg container */
+.hero-bg > div {
+  position: absolute;
+  inset: 0;
+}
+
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+  will-change: transform;
+}
+
+.hero-orb--1 {
+  width: 500px;
+  height: 500px;
+  background: var(--primary);
+  top: -10%;
+  right: -5%;
+  animation: orb-drift-1 12s ease-in-out infinite alternate;
+}
+
+.hero-orb--2 {
+  width: 400px;
+  height: 400px;
+  background: var(--accent);
+  bottom: -15%;
+  left: -5%;
+  animation: orb-drift-2 15s ease-in-out infinite alternate;
+  animation-delay: -3s;
+}
+
+.hero-orb--3 {
+  width: 300px;
+  height: 300px;
+  background: var(--primary);
+  top: 30%;
+  left: 40%;
+  opacity: 0.08;
+  animation: orb-drift-3 18s ease-in-out infinite alternate;
+  animation-delay: -7s;
+}
+
+/* Subtle dot grid overlay */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--text-primary) 0.5px, transparent 0.5px);
+  background-size: 24px 24px;
+  opacity: 0.04;
+}
+
+@keyframes orb-drift-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-60px, 40px) scale(1.1); }
+  100% { transform: translate(30px, -20px) scale(0.95); }
+}
+
+@keyframes orb-drift-2 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(50px, -30px) scale(1.15); }
+  100% { transform: translate(-40px, 20px) scale(0.9); }
+}
+
+@keyframes orb-drift-3 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-30px, -50px) scale(1.2); }
+  100% { transform: translate(50px, 30px) scale(0.85); }
+}
+
+/* Reduce orb sizes on mobile for performance */
+@media (max-width: 768px) {
+  .hero-orb--1 { width: 280px; height: 280px; filter: blur(60px); }
+  .hero-orb--2 { width: 220px; height: 220px; filter: blur(50px); }
+  .hero-orb--3 { width: 150px; height: 150px; filter: blur(40px); }
+  .hero-grid { background-size: 20px 20px; }
+}
+
 .editorial-main {
   padding-top: 4rem;
 }
@@ -42,17 +158,37 @@
   .hidden-mobile { display: none; }
   .text-8xl { font-size: clamp(2.5rem, 10vw, 4rem); }
   .text-7xl { font-size: clamp(2rem, 8vw, 3.5rem); }
-  .text-6xl { font-size: clamp(2rem, 7vw, 3rem); }
+  .text-6xl { font-size: clamp(1.8rem, 7vw, 2.8rem); }
   .text-5xl { font-size: clamp(1.5rem, 5vw, 2.5rem); }
+  .text-4xl { font-size: clamp(1.3rem, 4vw, 2rem); }
+  .text-2xl { font-size: clamp(1.1rem, 3vw, 1.5rem); }
   .pt-20 { padding-top: 3rem; }
   .py-20 { padding-top: 3rem; padding-bottom: 3rem; }
   .pr-8, .pl-8, .px-8 { padding-right: 0; padding-left: 0; }
-  .editorial-lead { text-align: left; }
+  .editorial-lead { text-align: center; font-size: 0.95rem; }
+  .mt-20 { margin-top: 3rem; }
+
+  /* Hero section mobile */
+  .hero-section { padding-top: 2rem; }
+  .hero-section h1 { margin-top: 1rem !important; margin-bottom: 1rem !important; }
+  .hero-section .mb-20 { margin-bottom: 2rem; }
+
+  /* Features & pricing better flow */
+  .lp-pricing-header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+  .lp-pricing-header p { text-align: left; }
+  .lp-price-amount { font-size: 2.5rem !important; }
+  .lp-price-card { padding: 1.5rem 0; }
+  .lp-price-card--pro { padding-left: 0; }
 }
 
 @media (max-width: 480px) {
   .container { padding-left: 1.25rem; padding-right: 1.25rem; }
   .max-w-2xl, .max-w-3xl { max-width: 100%; }
+  .text-8xl { font-size: 2.2rem; }
+  .text-6xl { font-size: 1.6rem; }
+  .btn-primary { width: 100%; text-align: center; justify-content: center; padding: 0.85rem 1rem; }
+  .editorial-lead { font-size: 0.85rem; line-height: 1.6; }
+  .lp-feature-list li { font-size: 0.75rem; }
 }
 
 /* Feature Grid */
@@ -378,3 +514,84 @@
   0% { opacity: 0; transform: translateY(20px); filter: blur(8px); }
   100% { opacity: 1; transform: translateY(0); filter: blur(0px); }
 }
+
+/* ── Social Proof Marquee Strip ── */
+.proof-strip {
+  overflow: hidden;
+  border-top: 1px solid var(--text-primary);
+  border-bottom: 1px solid var(--text-primary);
+  padding: 1.25rem 0;
+  margin-top: 5rem;
+  background: var(--bg-color);
+  position: relative;
+}
+
+.proof-strip::before,
+.proof-strip::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.proof-strip::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg-color), transparent);
+}
+
+.proof-strip::after {
+  right: 0;
+  background: linear-gradient(-90deg, var(--bg-color), transparent);
+}
+
+.proof-track {
+  display: flex;
+  gap: 0;
+  animation: marquee-scroll 25s linear infinite;
+  width: max-content;
+}
+
+.proof-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.proof-stat {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+.proof-label {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.proof-dot {
+  font-size: 1.5rem;
+  color: var(--primary);
+  margin: 0 1.5rem;
+  line-height: 1;
+}
+
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@media (max-width: 768px) {
+  .proof-stat { font-size: 1.2rem; }
+  .proof-dot { margin: 0 1rem; }
+}
+

@@ -5,6 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from 'recharts'
+import StudyHeatmap from '../components/StudyHeatmap'
 import './AnalyticsPage.css'
 
 const AnalyticsPage = ({ onNavigate }) => {
@@ -107,6 +108,9 @@ const AnalyticsPage = ({ onNavigate }) => {
       </header>
 
       <main className="analytics-main container">
+        {/* Hero: Study Heatmap */}
+        <StudyHeatmap />
+
         {/* KPI Row */}
         <div className="kpi-row">
           <div className="kpi-card">
@@ -135,7 +139,7 @@ const AnalyticsPage = ({ onNavigate }) => {
           <div className="chart-card">
             <h3 className="chart-title">Study Hours — Last 7 Days</h3>
             {loading ? <p className="text-xs text-muted italic">Loading data...</p> : (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={weeklyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fontFamily: 'Inter', textTransform: 'uppercase' }} />
@@ -154,12 +158,12 @@ const AnalyticsPage = ({ onNavigate }) => {
           <div className="chart-card">
             <h3 className="chart-title">Task Completion</h3>
             {loading ? <p className="text-xs text-muted italic">Loading data...</p> : (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
                     data={taskChartData}
                     cx="50%" cy="50%"
-                    innerRadius={55} outerRadius={85}
+                    innerRadius={50} outerRadius={75}
                     paddingAngle={3}
                     dataKey="value"
                   >
@@ -176,11 +180,11 @@ const AnalyticsPage = ({ onNavigate }) => {
         </div>
 
         {/* Motivational Quote */}
-        <div className="analytics-footer border-t border-ink pt-8 mt-8">
-          <p className="font-serif italic text-2xl text-muted max-w-2xl">
+        <div className="analytics-footer border-t border-ink pt-6 mt-6">
+          <p className="font-serif italic text-lg text-muted max-w-2xl">
             "An investment in knowledge pays the best interest."
           </p>
-          <p className="text-xs uppercase tracking-widest text-muted mt-2">— Benjamin Franklin</p>
+          <p className="text-xs uppercase tracking-widest text-muted mt-1">— Benjamin Franklin</p>
         </div>
       </main>
     </div>

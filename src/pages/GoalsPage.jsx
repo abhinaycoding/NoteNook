@@ -4,24 +4,17 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { usePlan } from '../contexts/PlanContext'
 import { useNotifications } from '../contexts/NotificationContext'
+import { useTranslation } from '../contexts/LanguageContext'
 import ProGate from '../components/ProGate'
 import Confetti from '../components/Confetti'
 import './GoalsPage.css'
-
-const BADGES = [
-  { id: 'first_session', icon: '🎯', label: 'First Focus', desc: 'Complete your first timer session', check: (s) => s >= 1 },
-  { id: 'five_sessions', icon: '🔥', label: 'On Fire', desc: '5 focus sessions completed', check: (s) => s >= 5 },
-  { id: 'ten_tasks', icon: '📋', label: 'Task Master', desc: '10 tasks completed', check: (s, t) => t >= 10 },
-  { id: 'ten_hours', icon: '⏰', label: 'Time Scholar', desc: '10 total hours studied', check: (s, t, h) => h >= 10 },
-  { id: 'twenty_five_hours', icon: '🏆', label: 'Dedicated', desc: '25 total hours studied', check: (s, t, h) => h >= 25 },
-  { id: 'fifty_tasks', icon: '⭐', label: 'Completionist', desc: '50 tasks completed', check: (s, t) => t >= 50 },
-]
 
 const GoalsPage = ({ onNavigate }) => {
   const { user, session } = useAuth()
   const { isPro } = usePlan()
   const toast = useToast()
   const { addNotification } = useNotifications()
+  const { t } = useTranslation()
   const [goals, setGoals] = useState([])
   
   const hasReachedLimit = !isPro && goals.length >= 5
@@ -31,6 +24,15 @@ const GoalsPage = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true)
   const [celebrate, setCelebrate] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+
+  const BADGES = [
+    { id: 'first_session', icon: '🎯', label: t('goals.badges.firstSession.label'), desc: t('goals.badges.firstSession.desc'), check: (s) => s >= 1 },
+    { id: 'five_sessions', icon: '🔥', label: t('goals.badges.fiveSessions.label'), desc: t('goals.badges.fiveSessions.desc'), check: (s) => s >= 5 },
+    { id: 'ten_tasks', icon: '📋', label: t('goals.badges.tenTasks.label'), desc: t('goals.badges.tenTasks.desc'), check: (s, tk) => tk >= 10 },
+    { id: 'ten_hours', icon: '⏰', label: t('goals.badges.tenHours.label'), desc: t('goals.badges.tenHours.desc'), check: (s, tk, h) => h >= 10 },
+    { id: 'twenty_five_hours', icon: '🏆', label: t('goals.badges.twentyFiveHours.label'), desc: t('goals.badges.twentyFiveHours.desc'), check: (s, tk, h) => h >= 25 },
+    { id: 'fifty_tasks', icon: '⭐', label: t('goals.badges.fiftyTasks.label'), desc: t('goals.badges.fiftyTasks.desc'), check: (s, tk) => tk >= 50 },
+  ]
 
   useEffect(() => {
     let isMounted = true
@@ -76,7 +78,7 @@ const GoalsPage = ({ onNavigate }) => {
       } catch (err) {
         if (isMounted) {
           console.error("Goals Fetch Error:", err)
-          setErrorMsg('Failed to fetch data: ' + (err.message || String(err)))
+          setErrorMsg(t('goals.fetchFailed') + (err.message || String(err)))
           setLoading(false)
         }
       }
@@ -128,9 +130,9 @@ const GoalsPage = ({ onNavigate }) => {
       }
       setNewGoal('')
       setNewTarget('')
-      toast('Goal committed to the canvas.', 'success')
+      toast(t('goals.goalAdded'), 'success')
     } catch (err) {
-      toast('Failed to add goal.', 'error')
+      toast(t('goals.goalFailed'), 'error')
       console.error(err)
     }
   }
@@ -145,8 +147,8 @@ const GoalsPage = ({ onNavigate }) => {
       const newBadges = unlockedBadges.slice(prevBadgesCount.current)
       newBadges.forEach(badge => {
         addNotification(
-          'Milestone Unlocked!',
-          `You earned the "${badge.label}" badge: ${badge.desc}`,
+          t('goals.milestoneUnlocked'),
+          t('goals.badgeEarned').replace('{label}', badge.label).replace('{desc}', badge.desc),
           'success'
         )
       })
@@ -170,8 +172,8 @@ const GoalsPage = ({ onNavigate }) => {
         body: JSON.stringify({ completed: !current })
       })
       if (!current) {
-        toast('Goal achieved! Well done.', 'success')
-        addNotification('Goal Achieved', 'You completed a monthly goal. Keep up the momentum!', 'success')
+        toast(t('goals.goalAchieved'), 'success')
+        addNotification(t('goals.goalAchieved'), t('goals.goalAchievedNotif'), 'success')
         setCelebrate(true)
         setTimeout(() => setCelebrate(false), 3500)
       }
@@ -190,7 +192,7 @@ const GoalsPage = ({ onNavigate }) => {
         method: 'DELETE',
         headers: getDirectHeaders()
       })
-      toast('Goal removed.', 'info')
+      toast(t('goals.goalRemoved'), 'info')
     } catch (err) {
       console.error(err)
     }
@@ -205,9 +207,9 @@ const GoalsPage = ({ onNavigate }) => {
         <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
             <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
-            <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Goals & Milestones</h1>
+            <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>{t('goals.pageTitle')}</h1>
           </div>
-          <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">← Dashboard</button>
+          <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">{t('goals.backDashboard')}</button>
         </div>
       </header>
 
@@ -216,7 +218,7 @@ const GoalsPage = ({ onNavigate }) => {
 
           {/* Left: Goals */}
           <div>
-            <h3 className="section-label">Monthly Goals</h3>
+            <h3 className="section-label">{t('goals.monthlyGoals')}</h3>
 
             {hasReachedLimit ? (
               <ProGate feature="goals" inline onNavigatePricing={onNavigate} />
@@ -224,7 +226,7 @@ const GoalsPage = ({ onNavigate }) => {
               <div className="add-goal-row">
                 <input
                   type="text"
-                  placeholder="Set a new goal..."
+                  placeholder={t('goals.setNewGoal')}
                   value={newGoal}
                   onChange={e => setNewGoal(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addGoal()}
@@ -232,7 +234,7 @@ const GoalsPage = ({ onNavigate }) => {
                 />
                 <input
                   type="text"
-                  placeholder="Target (e.g. 20hrs)"
+                  placeholder={t('goals.target')}
                   value={newTarget}
                   onChange={e => setNewTarget(e.target.value)}
                   className="goal-target-input"
@@ -248,9 +250,9 @@ const GoalsPage = ({ onNavigate }) => {
             )}
 
             {loading ? (
-              <p className="text-xs text-muted italic">Loading goals...</p>
+              <p className="text-xs text-muted italic">{t('goals.loadingGoals')}</p>
             ) : goals.length === 0 ? (
-              <p className="text-xs text-muted italic">No goals set. Chart your course, Scholar.</p>
+              <p className="text-xs text-muted italic">{t('goals.noGoals')}</p>
             ) : (
               <div className="goals-list">
                 {goals.map(goal => (
@@ -273,19 +275,19 @@ const GoalsPage = ({ onNavigate }) => {
 
             {/* Progress Summary */}
             <div className="progress-summary border-t border-ink pt-6 mt-8">
-              <h3 className="section-label">Your Progress</h3>
+              <h3 className="section-label">{t('goals.yourProgress')}</h3>
               <div className="progress-stats">
                 <div className="progress-stat">
                   <span className="stat-num">{stats.sessions}</span>
-                  <span className="stat-lbl">Sessions</span>
+                  <span className="stat-lbl">{t('goals.sessions')}</span>
                 </div>
                 <div className="progress-stat">
                   <span className="stat-num">{stats.tasks}</span>
-                  <span className="stat-lbl">Tasks Done</span>
+                  <span className="stat-lbl">{t('goals.tasksDone')}</span>
                 </div>
                 <div className="progress-stat">
                   <span className="stat-num">{parseFloat(stats.hours).toFixed(1)}</span>
-                  <span className="stat-lbl">Hours</span>
+                  <span className="stat-lbl">{t('goals.hours')}</span>
                 </div>
               </div>
             </div>
@@ -293,7 +295,7 @@ const GoalsPage = ({ onNavigate }) => {
 
           {/* Right: Badges */}
           <div>
-            <h3 className="section-label">Achievement Milestones</h3>
+            <h3 className="section-label">{t('goals.achievements')}</h3>
             <div className="badges-grid">
               {BADGES.map(badge => {
                 const unlocked = badge.check(stats.sessions, stats.tasks, stats.hours)
@@ -302,7 +304,7 @@ const GoalsPage = ({ onNavigate }) => {
                     <div className="badge-icon">{badge.icon}</div>
                     <div className="badge-label">{badge.label}</div>
                     <div className="badge-desc">{badge.desc}</div>
-                    {unlocked && <div className="badge-status">✓ Earned</div>}
+                    {unlocked && <div className="badge-status">{t('goals.earned')}</div>}
                   </div>
                 )
               })}
@@ -311,8 +313,8 @@ const GoalsPage = ({ onNavigate }) => {
             {unlockedBadges.length > 0 && (
               <div className="mt-6 font-serif italic text-muted text-lg">
                 "{unlockedBadges.length === BADGES.length
-                  ? 'You have mastered the canvas. A true Scholar.'
-                  : `${unlockedBadges.length} of ${BADGES.length} milestones reached. Keep going.`}"
+                  ? t('goals.allMastered')
+                  : `${unlockedBadges.length} / ${BADGES.length} ${t('goals.milestonesReached')}`}"
               </div>
             )}
           </div>

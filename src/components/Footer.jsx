@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import LegalModal from './LegalModal'
+import { useTranslation } from '../contexts/LanguageContext'
 import './Footer.css'
 
 const Footer = () => {
   const [activeModal, setActiveModal] = useState(null)
+  const { t } = useTranslation()
 
   return (
     <footer className="editorial-footer">
@@ -12,31 +14,31 @@ const Footer = () => {
           <div className="footer-brand">
             <h2 className="text-4xl font-serif text-primary">NoteNook.</h2>
             <p className="text-sm text-muted mt-4 max-w-xs">
-              We have traded scattered digital boards for an elegant, distraction-free ledger. A curated canvas for the modern student.
+              {t('footer.tagline')}
             </p>
           </div>
           
           <div className="footer-links-container">
             <div className="footer-column">
-              <h4 className="footer-heading">Legal</h4>
+              <h4 className="footer-heading">{t('footer.legal')}</h4>
               <ul className="footer-links text-sm font-medium">
-                <li><button type="button" onClick={() => setActiveModal('Privacy Policy')} style={{ cursor: 'pointer', textAlign: 'left', padding: 0 }}>Privacy Policy</button></li>
-                <li><button type="button" onClick={() => setActiveModal('Guidelines')} style={{ cursor: 'pointer', textAlign: 'left', padding: 0 }}>Guidelines</button></li>
+                <li><button type="button" onClick={() => setActiveModal('Privacy Policy')} style={{ cursor: 'pointer', textAlign: 'left', padding: 0 }}>{t('footer.privacyPolicy')}</button></li>
+                <li><button type="button" onClick={() => setActiveModal('Guidelines')} style={{ cursor: 'pointer', textAlign: 'left', padding: 0 }}>{t('footer.guidelines')}</button></li>
               </ul>
             </div>
             
             <div className="footer-column">
-              <h4 className="footer-heading">Access</h4>
+              <h4 className="footer-heading">{t('footer.access')}</h4>
               <ul className="footer-links text-sm font-medium">
-                <li><a href="#subscribe">The Canvas (Free)</a></li>
-                <li><a href="#subscribe">The Scholar Pass (Pro)</a></li>
+                <li><a href="#subscribe">{t('footer.canvasFree')}</a></li>
+                <li><a href="#subscribe">{t('footer.scholarPro')}</a></li>
               </ul>
             </div>
             
             <div className="footer-column">
-              <h4 className="footer-heading">Connect</h4>
+              <h4 className="footer-heading">{t('footer.connect')}</h4>
               <ul className="footer-links text-sm font-medium">
-                <li><a href="mailto:abhinaycoding@gmail.com" className="footer-mail-link">Contact Us</a></li>
+                <li><a href="mailto:abhinaycoding@gmail.com" className="footer-mail-link">{t('footer.contactUs')}</a></li>
                 <li><a href="https://x.com/AbhinayCode" target="_blank" rel="noreferrer">X</a></li>
                 <li><a href="https://github.com/abhinaycoding?tab=overview&from=2026-02-01&to=2026-02-27" target="_blank" rel="noreferrer">GitHub</a></li>
               </ul>

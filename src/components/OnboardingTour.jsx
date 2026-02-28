@@ -1,36 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react'
-
-const TOUR_STEPS = [
-  {
-    target: '.dash-grid',
-    title: 'Your Canvas',
-    desc: 'This is your personal dashboard. All your tools live here — timer, tasks, analytics, and notes.',
-    position: 'bottom',
-  },
-  {
-    target: '.timer-widget',
-    title: 'The Chronos Timer',
-    desc: 'Start a focus session with 25, 45, or 60-minute presets. Sessions are logged to your analytics automatically.',
-    position: 'bottom',
-  },
-  {
-    target: '.ledger-container, .add-task-trigger',
-    title: 'The Ledger',
-    desc: 'Add tasks, set priorities, and check them off. Your daily planning starts here.',
-    position: 'top',
-  },
-  {
-    target: '.desktop-nav, .mobile-nav-toggle',
-    title: 'Navigate Anywhere',
-    desc: 'Access Analytics, Goals, Exams, Resume Builder, and more from the top navigation.',
-    position: 'bottom',
-  },
-]
+import { useTranslation } from '../contexts/LanguageContext'
 
 const OnboardingTour = ({ onComplete }) => {
   const [step, setStep] = useState(0)
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0, height: 0 })
   const tooltipRef = useRef(null)
+  const { t } = useTranslation()
+
+  const TOUR_STEPS = [
+    {
+      target: '.dash-grid',
+      title: t('tour.step1Title'),
+      desc: t('tour.step1Desc'),
+      position: 'bottom',
+    },
+    {
+      target: '.timer-widget',
+      title: t('tour.step2Title'),
+      desc: t('tour.step2Desc'),
+      position: 'bottom',
+    },
+    {
+      target: '.ledger-container, .add-task-trigger',
+      title: t('tour.step3Title'),
+      desc: t('tour.step3Desc'),
+      position: 'top',
+    },
+    {
+      target: '.desktop-nav, .mobile-nav-toggle',
+      title: t('tour.step4Title'),
+      desc: t('tour.step4Desc'),
+      position: 'bottom',
+    },
+  ]
 
   const current = TOUR_STEPS[step]
 
@@ -126,7 +128,7 @@ const OnboardingTour = ({ onComplete }) => {
             letterSpacing: '0.15em', color: 'var(--text-secondary)',
             marginBottom: '0.5rem', fontWeight: 700,
           }}>
-            Step {step + 1} of {TOUR_STEPS.length}
+            {t('tour.step')} {step + 1} {t('tour.of')} {TOUR_STEPS.length}
           </div>
 
           {/* Title */}
@@ -156,7 +158,7 @@ const OnboardingTour = ({ onComplete }) => {
                 fontFamily: 'var(--font-sans)',
               }}
             >
-              Skip Tour
+              {t('tour.skipTour')}
             </button>
             <button
               onClick={handleNext}
@@ -168,7 +170,7 @@ const OnboardingTour = ({ onComplete }) => {
                 cursor: 'pointer', fontFamily: 'var(--font-sans)',
               }}
             >
-              {step === TOUR_STEPS.length - 1 ? 'Finish' : 'Next →'}
+              {step === TOUR_STEPS.length - 1 ? t('tour.finish') : t('tour.next')}
             </button>
           </div>
         </div>

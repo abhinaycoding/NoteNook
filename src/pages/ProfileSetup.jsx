@@ -2,8 +2,10 @@ import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Navigation from '../components/Navigation'
 import { ARCHETYPES } from '../constants/archetypes'
+import { useTranslation } from '../contexts/LanguageContext'
 
 const ProfileSetup = ({ onNavigate, user }) => {
+  const { t } = useTranslation()
   const [studentType, setStudentType] = useState('High School')
   const [targetExam, setTargetExam] = useState('')
   const [goals, setGoals] = useState('')
@@ -49,10 +51,10 @@ const ProfileSetup = ({ onNavigate, user }) => {
           
           <div className="border border-ink p-16 bg-cream relative">
             <h2 className="text-4xl font-serif mb-4 text-center">
-              The Ledger Awaits.
+              {t('profile.title')}
             </h2>
             <p className="text-xs text-muted text-center uppercase tracking-widest mb-12">
-              Configure your academic profile
+              {t('profile.subtitle')}
             </p>
 
             {errorMsg && (
@@ -64,44 +66,44 @@ const ProfileSetup = ({ onNavigate, user }) => {
             <form onSubmit={handleSaveProfile} className="flex flex-col gap-8">
               
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-widest font-bold">Current Status</label>
+                <label className="text-xs uppercase tracking-widest font-bold">{t('profile.currentStatus')}</label>
                 <select 
                   value={studentType} 
                   onChange={(e) => setStudentType(e.target.value)}
                   className="w-full bg-transparent border-b border-ink font-serif text-xl outline-none py-3 focus:border-primary transition-colors cursor-pointer appearance-none"
                 >
-                  <option value="High School">High School</option>
-                  <option value="University">University</option>
-                  <option value="Competitive Exam">Competitive Exam</option>
-                  <option value="Professional Development">Professional Development</option>
+                  <option value="High School">{t('profile.highSchool')}</option>
+                  <option value="University">{t('profile.university')}</option>
+                  <option value="Competitive Exam">{t('profile.competitiveExam')}</option>
+                  <option value="Professional Development">{t('profile.professionalDev')}</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-widest font-bold">Target Exam / Core Subject</label>
+                <label className="text-xs uppercase tracking-widest font-bold">{t('profile.targetExam')}</label>
                 <input 
                   type="text" 
                   required 
                   value={targetExam}
                   onChange={(e) => setTargetExam(e.target.value)}
                   className="w-full bg-transparent border-b border-ink font-serif text-xl outline-none py-3 focus:border-primary transition-colors"
-                  placeholder="e.g. JEE, NEET, Bar Exam, Calculus"
+                  placeholder={t('profile.targetPlaceholder')}
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-widest font-bold">Primary Goal</label>
+                <label className="text-xs uppercase tracking-widest font-bold">{t('profile.primaryGoal')}</label>
                 <textarea 
                   required 
                   value={goals}
                   onChange={(e) => setGoals(e.target.value)}
                   className="w-full bg-transparent border-b border-ink font-serif text-xl outline-none py-3 focus:border-primary transition-colors resize-none h-24"
-                  placeholder="e.g. Score 99 percentile, maintain 3.8 GPA"
+                  placeholder={t('profile.goalPlaceholder')}
                 />
               </div>
 
               <div className="flex flex-col gap-4">
-                <label className="text-xs uppercase tracking-widest font-bold">Choose Your Academic Persona</label>
+                <label className="text-xs uppercase tracking-widest font-bold">{t('profile.choosePersona')}</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {ARCHETYPES.map((arch) => (
                     <button
@@ -126,7 +128,7 @@ const ProfileSetup = ({ onNavigate, user }) => {
                 disabled={loading}
                 className="btn-primary w-full mt-4 justify-center py-4 text-sm uppercase tracking-widest"
               >
-                {loading ? 'Initializing...' : 'Complete Registration'}
+                {loading ? t('profile.initializing') : t('profile.completeRegistration')}
               </button>
             </form>
 
@@ -136,7 +138,7 @@ const ProfileSetup = ({ onNavigate, user }) => {
 
       <footer className="container py-8 flex justify-between uppercase tracking-widest text-xs font-bold border-t border-ink mt-auto">
         <div>NoteNook Publishing © 2026</div>
-        <div>All Rights Reserved</div>
+        <div>{t('auth.allRights')}</div>
       </footer>
     </div>
   )

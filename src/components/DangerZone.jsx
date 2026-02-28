@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from '../contexts/LanguageContext'
 import '../pages/Dashboard.css' // uses ledger styles
 
 const DangerZone = () => {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [urgentTasks, setUrgentTasks] = useState([])
 
   useEffect(() => {
@@ -96,10 +98,10 @@ const DangerZone = () => {
     <div style={{ marginBottom: '3rem', padding: '1.5rem', border: '2px dashed var(--danger)', backgroundColor: 'rgba(204, 75, 44, 0.02)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
         <h2 className="text-xl font-serif text-danger uppercase tracking-widest font-bold m-0" style={{ color: 'var(--danger)' }}>
-          ⚠ Danger Zone
+          {t('dangerZone.title')}
         </h2>
         <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--danger)', opacity: 0.8 }}>
-          Immediate Action Required
+          {t('dangerZone.subtitle')}
         </span>
       </div>
 
@@ -113,7 +115,7 @@ const DangerZone = () => {
                   className="ledger-check cursor-pointer"
                   style={{ borderColor: 'var(--danger)' }}
                   onClick={() => completeTask(task.id)}
-                  title="Mark Complete"
+                  title={t('dangerZone.markComplete')}
                 />
                 <div className="font-serif text-lg" style={{ color: 'var(--text-primary)' }}>
                   {task.title}
@@ -125,7 +127,7 @@ const DangerZone = () => {
                 )}
                 {task.deadline_at && (
                   <span style={{ fontSize: '0.6rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', color: isOverdue ? 'var(--danger)' : 'var(--warning)' }}>
-                    {isOverdue ? 'OVERDUE:' : 'DUE:'} {new Date(task.deadline_at).toLocaleDateString()}
+                    {isOverdue ? t('dangerZone.overdue') : t('dangerZone.due')} {new Date(task.deadline_at).toLocaleDateString()}
                   </span>
                 )}
               </div>

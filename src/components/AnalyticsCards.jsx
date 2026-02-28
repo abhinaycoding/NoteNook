@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from '../contexts/LanguageContext'
 import '../pages/Dashboard.css'
-
-const QUOTES = [
-  "The volume of work is directly proportional to the depth of concentration applied.",
-  "A scholar who knows how to rest, knows how to work.",
-  "Do the hard task first. The rest of the day shall be easy.",
-  "One deep hour beats ten scattered ones.",
-  "Clarity of purpose produces clarity of action.",
-]
 
 const AnimatedCounter = ({ value, isDecimal = false, duration = 1500, padStart = 0 }) => {
   const finalValue = parseFloat(value)
@@ -56,6 +49,7 @@ const AnimatedCounter = ({ value, isDecimal = false, duration = 1500, padStart =
 
 const AnalyticsCards = () => {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const [stats, setStats] = useState({ 
     hoursToday: 0, 
     tasksCompleted: 0, 
@@ -64,7 +58,8 @@ const AnalyticsCards = () => {
     completionRate: 0 
   })
   const [loading, setLoading] = useState(true)
-  const quote = QUOTES[new Date().getDay() % QUOTES.length]
+  const quotes = t('analytics.quotes')
+  const quote = Array.isArray(quotes) ? quotes[new Date().getDay() % quotes.length] : quotes
 
   const fetchStats = async () => {
     if (!user) return
@@ -134,20 +129,20 @@ const AnalyticsCards = () => {
           <div className="metric-number">
             <AnimatedCounter value={stats.hoursToday} isDecimal={true} />
           </div>
-          <div className="metric-label">Hours Today</div>
+          <div className="metric-label">{t('analytics.hoursToday')}</div>
         </div>
         <div className="metric-block">
           <div className="metric-number">
             <AnimatedCounter value={stats.tasksCompleted} padStart={2} />
           </div>
-          <div className="metric-label">Tasks Done</div>
+          <div className="metric-label">{t('analytics.tasksDone')}</div>
         </div>
         <div className="metric-block">
           <div className="metric-number">
             <AnimatedCounter value={stats.completionRate || 0} />
             <span style={{ fontSize: '1.5rem' }}>%</span>
           </div>
-          <div className="metric-label">Completion</div>
+          <div className="metric-label">{t('analytics.completion')}</div>
         </div>
       </div>
 
@@ -171,9 +166,9 @@ const AnalyticsCards = () => {
             </svg>
           </div>
           <div className="metrics-progress-info">
-            <div className="metrics-progress-label">Daily Progress</div>
+            <div className="metrics-progress-label">{t('analytics.dailyProgress')}</div>
             <div className="metrics-progress-sub">
-              {stats.tasksCompleted} of {stats.totalTasks} Tasks
+              {stats.tasksCompleted} {t('analytics.ofTasks')} {stats.totalTasks} {t('analytics.tasks')}
             </div>
           </div>
         </div>

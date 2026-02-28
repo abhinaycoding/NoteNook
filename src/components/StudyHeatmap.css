@@ -1,0 +1,208 @@
+/* ── Study Heatmap ── */
+.heatmap-card {
+  position: relative;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+.heatmap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.heatmap-stats {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.heatmap-stat {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.heatmap-stat strong {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin-right: 0.2rem;
+}
+
+/* SVG container — horizontally scrollable on mobile */
+.heatmap-scroll-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  padding-bottom: 0.5rem;
+}
+
+.heatmap-scroll-wrap::-webkit-scrollbar {
+  height: 4px;
+}
+.heatmap-scroll-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.heatmap-scroll-wrap::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.heatmap-svg {
+  display: block;
+}
+
+/* Month labels */
+.heatmap-month-label {
+  font-family: var(--font-sans);
+  font-size: 0.55rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  fill: var(--text-secondary);
+}
+
+/* Day-of-week labels */
+.heatmap-day-label {
+  font-family: var(--font-sans);
+  font-size: 0.5rem;
+  font-weight: 500;
+  fill: var(--text-secondary);
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+/* Grid cells — 5 intensity levels */
+.heatmap-cell {
+  transition: all 0.15s ease;
+  cursor: pointer;
+  stroke: var(--bg-color);
+  stroke-width: 1;
+}
+
+.heatmap-cell:hover {
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+}
+
+/* Level colors — adapt to theme */
+.heatmap-level-0 {
+  fill: var(--border);
+  opacity: 0.4;
+}
+.heatmap-level-1 {
+  fill: var(--primary);
+  opacity: 0.25;
+}
+.heatmap-level-2 {
+  fill: var(--primary);
+  opacity: 0.5;
+}
+.heatmap-level-3 {
+  fill: var(--primary);
+  opacity: 0.75;
+}
+.heatmap-level-4 {
+  fill: var(--primary);
+  opacity: 1;
+}
+
+/* Legend */
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.heatmap-legend-text {
+  font-family: var(--font-sans);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin: 0 0.25rem;
+}
+
+.heatmap-legend-cell {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+/* Tooltip */
+.heatmap-tooltip {
+  position: absolute;
+  pointer-events: none;
+  z-index: 50;
+  background: var(--text-primary);
+  color: var(--bg-color);
+  padding: 0.4rem 0.65rem;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  transform: translateX(-50%);
+  animation: tooltip-pop 0.15s ease;
+}
+
+.heatmap-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid var(--text-primary);
+}
+
+@keyframes tooltip-pop {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.95); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.heatmap-tooltip-hours {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.heatmap-tooltip-date {
+  font-size: 0.6rem;
+  opacity: 0.7;
+  margin-top: 0.1rem;
+}
+
+/* Loading skeleton */
+.heatmap-skeleton {
+  padding: 1rem 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .heatmap-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .heatmap-stats {
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .heatmap-stat { font-size: 0.65rem; }
+  .heatmap-stat strong { font-size: 0.95rem; }
+}
+
+@media (max-width: 480px) {
+  .heatmap-card { padding: 1rem 0; }
+  .heatmap-stats { gap: 0.75rem; }
+}

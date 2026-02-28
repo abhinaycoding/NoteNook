@@ -264,6 +264,113 @@ body, .card, .canvas-layout, .canvas-header, .library-directory, header, main, a
 }
 
 
+/* ── Language Picker ── */
+.lang-picker-wrap {
+  position: fixed;
+  bottom: 2rem;
+  left: 5.5rem;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.lang-toggle {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 2px 0px var(--text-primary);
+  cursor: pointer;
+  border-radius: 0;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, background-color 0.25s ease !important;
+}
+
+.lang-toggle:hover {
+  box-shadow: 3px 3px 0px var(--primary);
+  border-color: var(--primary);
+  transform: translate(-1px, -1px);
+}
+
+.lang-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lift);
+  animation: theme-panel-in 0.2s ease both;
+}
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all 0.12s ease;
+  min-width: 120px;
+}
+
+.lang-option:hover {
+  background: var(--bg-color);
+  border-color: var(--border);
+}
+
+.lang-option--active {
+  border-color: var(--primary);
+  background: var(--bg-color);
+}
+
+.lang-flag {
+  font-size: 0.9rem;
+  width: 22px;
+  text-align: center;
+}
+
+.lang-label {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+  /* Push pickers above the 60px mobile bottom nav bar */
+  .theme-picker-wrap {
+    bottom: 5rem;
+    left: 1rem;
+  }
+  .lang-picker-wrap {
+    bottom: 5rem;
+    left: 4rem;
+  }
+  .lang-toggle {
+    width: 34px;
+    height: 34px;
+    font-size: 0.9rem;
+  }
+  .theme-toggle {
+    width: 34px !important;
+    height: 34px !important;
+    font-size: 0.9rem !important;
+  }
+  .theme-expand-btn {
+    width: 34px;
+  }
+}
+
 /* ── Pro Lock Badge (Global) ── */
 .pro-lock-badge {
   display: inline-block;

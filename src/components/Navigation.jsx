@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from '../contexts/LanguageContext'
 import './Navigation.css'
 
 const Navigation = ({ onNavigate, isAuthPage }) => {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { user } = useAuth()
+  const { t } = useTranslation()
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -43,9 +45,9 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
         {/* Center: Links */}
         {!isAuthPage && (
           <nav className="nav-menu">
-            <button className="nav-item" onClick={() => scrollTo('manifesto')}>Manifesto</button>
-            <button className="nav-item" onClick={() => scrollTo('tools')}>The Tools</button>
-            <button className="nav-item" onClick={() => scrollTo('subscribe')}>Subscribe</button>
+            <button className="nav-item" onClick={() => scrollTo('manifesto')}>{t('nav.manifesto')}</button>
+            <button className="nav-item" onClick={() => scrollTo('tools')}>{t('nav.theTools')}</button>
+            <button className="nav-item" onClick={() => scrollTo('subscribe')}>{t('nav.subscribe')}</button>
           </nav>
         )}
 
@@ -53,10 +55,10 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
         {!isAuthPage && (
           <div className="nav-actions">
             <button className="text-sm font-medium uppercase tracking-wide hover:italic hidden-mobile-action" onClick={handleLogin}>
-              {user ? 'dashboard' : 'Log In'}
+              {user ? t('nav.dashboard') : t('nav.logIn')}
             </button>
             <button className="btn-primary ml-4" onClick={handleBegin}>
-              {user ? 'Open App' : 'Begin'}
+              {user ? t('nav.openApp') : t('nav.begin')}
             </button>
             <button 
               className="mobile-nav-hamburger" 
@@ -72,10 +74,10 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
       {/* Mobile Dropdown */}
       {!isAuthPage && mobileMenuOpen && (
         <div className="mobile-dropdown-menu">
-          <button className="nav-item" onClick={() => { scrollTo('manifesto'); setMobileMenuOpen(false); }}>Manifesto</button>
-          <button className="nav-item" onClick={() => { scrollTo('tools'); setMobileMenuOpen(false); }}>The Tools</button>
-          <button className="nav-item" onClick={() => { scrollTo('subscribe'); setMobileMenuOpen(false); }}>Subscribe</button>
-          <button className="nav-item" onClick={handleLogin}>{user ? 'Dashboard' : 'Log In'}</button>
+          <button className="nav-item" onClick={() => { scrollTo('manifesto'); setMobileMenuOpen(false); }}>{t('nav.manifesto')}</button>
+          <button className="nav-item" onClick={() => { scrollTo('tools'); setMobileMenuOpen(false); }}>{t('nav.theTools')}</button>
+          <button className="nav-item" onClick={() => { scrollTo('subscribe'); setMobileMenuOpen(false); }}>{t('nav.subscribe')}</button>
+          <button className="nav-item" onClick={handleLogin}>{user ? t('nav.dashboard') : t('nav.logIn')}</button>
         </div>
       )}
     </header>

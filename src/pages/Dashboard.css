@@ -351,6 +351,10 @@
   .mobile-nav-toggle {
     display: flex !important;
   }
+  /* Pad bottom for mobile bottom nav */
+  .canvas-main {
+    padding-bottom: 5rem !important;
+  }
   /* Ensure header remains row-based for logo and hamburger */
   .canvas-header > div:first-child {
     flex-direction: row !important;
@@ -362,16 +366,40 @@
   /* Ledger: shrink the large serif titles */
   .ledger-title { font-size: 1.1rem; }
   .ledger-meta { min-width: 60px; font-size: 0.65rem; }
+  .ledger-check { margin-right: 0.75rem; }
   /* Metrics */
   .metric-number { font-size: 2.5rem; }
+  .metrics-row { gap: 1.5rem; flex-wrap: wrap; }
   /* Timer */
   .timer-huge { font-size: clamp(3rem, 12vw, 6rem); }
+  /* Widget grid */
+  .dashboard-widgets-grid { gap: 2rem 2rem; }
+  /* Section title */
+  .dash-section-title { font-size: 0.6rem; margin-bottom: 1rem; }
+  /* Add task */
+  .add-task-input { font-size: 1rem; }
+  .add-task-trigger { font-size: 0.95rem; }
 }
 
 @media (max-width: 480px) {
   .canvas-main { margin-top: 1rem; }
   .canvas-header { padding-top: 1rem; }
-  .ledger-title { font-size: 1rem; }
+  .ledger-title { font-size: 0.95rem; }
+  .ledger-row { padding: 0.75rem 0; }
+  .metric-number { font-size: 2rem; }
+  .metrics-row { gap: 1rem; }
+  .metric-label { font-size: 0.55rem; }
+  /* Timer digits */
+  .timer-digits { font-size: 3rem !important; }
+  .timer-session-info { font-size: 0.65rem; }
+  .timer-preset-btn { font-size: 0.65rem; padding: 0.25rem 0.5rem; }
+  /* Archive items */
+  .archive-title { font-size: 1rem; }
+  .archive-folder { font-size: 0.65rem; }
+  /* Buttons */
+  .dash-nav-btn { font-size: 0.6rem; padding: 0.35rem 0; }
+  /* Pro badge */
+  .pro-lock-badge { font-size: 0.4rem; padding: 0.05rem 0.2rem; }
 }
 
 /* ── Widget Grid Layout ── */

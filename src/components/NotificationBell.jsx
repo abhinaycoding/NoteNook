@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import './NotificationBell.css';
 
 const NotificationBell = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -62,13 +64,13 @@ const NotificationBell = () => {
       {isOpen && (
         <div className="notification-dropdown">
           <div className="dropdown-header">
-            <h3>Notifications</h3>
+            <h3>{t('notifications.title')}</h3>
             {unreadCount > 0 && (
               <button 
                 className="mark-all-read" 
                 onClick={(e) => { e.stopPropagation(); markAllAsRead(); }}
               >
-                Mark all read
+                {t('notifications.markAllRead')}
               </button>
             )}
           </div>
@@ -76,8 +78,8 @@ const NotificationBell = () => {
           <div className="dropdown-body">
             {notifications.length === 0 ? (
               <div className="empty-notifications">
-                <p>All caught up.</p>
-                <span>No new alerts</span>
+                <p>{t('notifications.allCaughtUp')}</p>
+                <span>{t('notifications.noNewAlerts')}</span>
               </div>
             ) : (
               notifications.map((notif) => (

@@ -18,6 +18,7 @@ import Loader from './components/Loader'
 import ZenMode from './components/ZenMode'
 import { useAuth } from './contexts/AuthContext'
 import { useTheme } from './contexts/ThemeContext'
+import { useTranslation } from './contexts/LanguageContext'
 import './App.css'
 
 const PROTECTED = ['dashboard', 'setup', 'library', 'analytics', 'exams', 'goals', 'resume', 'pricing', 'calendar', 'rooms', 'room']
@@ -28,7 +29,9 @@ function App() {
   const [activeRoomName, setActiveRoomName] = useState('')
   const { user, profile, isPasswordResetFlow } = useAuth()
   const { isDark, toggle, theme, setThemeById, themes } = useTheme()
+  const { language, setLanguage, languages } = useTranslation()
   const [themePanelOpen, setThemePanelOpen] = useState(false)
+  const [langPanelOpen, setLangPanelOpen] = useState(false)
   const [showOAuthLoader, setShowOAuthLoader] = useState(false)
 
   // Detect OAuth callback (Google redirect) and show the Pencil Loader
@@ -111,6 +114,32 @@ function App() {
               >
                 <span className="theme-swatch-icon">{t.icon}</span>
                 <span className="theme-swatch-label">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Floating language picker */}
+      <div className="lang-picker-wrap">
+        <button
+          className="lang-toggle"
+          onClick={() => setLangPanelOpen(!langPanelOpen)}
+          title="Change Language"
+          aria-label="Change language"
+        >
+          🌐
+        </button>
+        {langPanelOpen && (
+          <div className="lang-panel">
+            {languages.map(l => (
+              <button
+                key={l.code}
+                className={`lang-option ${language === l.code ? 'lang-option--active' : ''}`}
+                onClick={() => { setLanguage(l.code); setLangPanelOpen(false) }}
+              >
+                <span className="lang-flag">{l.flag}</span>
+                <span className="lang-label">{l.label}</span>
               </button>
             ))}
           </div>

@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { useZen } from '../contexts/ZenContext'
 import { useTimer } from '../contexts/TimerContext'
+import { useTranslation } from '../contexts/LanguageContext'
 import Confetti from './Confetti'
 import './FocusTimer.css'
 
@@ -11,6 +12,7 @@ const FocusTimer = () => {
   const { user } = useAuth()
   const toast = useToast()
   const { enterZenMode } = useZen()
+  const { t } = useTranslation()
   const {
     selectedMinutes,
     secondsLeft,
@@ -51,8 +53,8 @@ const FocusTimer = () => {
   const mm = Math.floor(secondsLeft / 60).toString().padStart(2, '0')
   const ss = (secondsLeft % 60).toString().padStart(2, '0')
   const progress = (selectedMinutes * 60 - secondsLeft) / (selectedMinutes * 60)
-  const label = isComplete ? 'Restart' : (secondsLeft < selectedMinutes * 60 && !isRunning) ? 'Resume' : 'Commence'
-  const stateLabel = isComplete ? 'Done' : isRunning ? 'ON' : '—'
+  const label = isComplete ? t('timer.restart') : (secondsLeft < selectedMinutes * 60 && !isRunning) ? t('timer.resume') : t('timer.commence')
+  const stateLabel = isComplete ? t('timer.done') : isRunning ? t('timer.on') : t('timer.idle')
 
   // SVG arc
   const R = 44
@@ -88,7 +90,7 @@ const FocusTimer = () => {
           className="timer-preset-btn"
           style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
         >
-          <span style={{ fontSize: '0.8rem' }}>🎧</span> Zen Mode
+          <span style={{ fontSize: '0.8rem' }}>🎧</span> {t('timer.zenMode')}
         </button>
       </div>
 
@@ -116,7 +118,7 @@ const FocusTimer = () => {
             {ss}
           </div>
           <div className="timer-session-info">
-            {selectedMinutes}min · {isComplete ? 'Session complete' : isRunning ? 'Focusing…' : 'Ready to begin'}
+            {selectedMinutes}min · {isComplete ? t('timer.sessionComplete') : isRunning ? t('timer.focusing') : t('timer.ready')}
           </div>
         </div>
       </div>
@@ -134,15 +136,15 @@ const FocusTimer = () => {
 
       {isComplete && (
         <p className="timer-done-msg">
-          {sessionSaved ? '✓ Session logged to Analytics.' : 'Session complete!'}
+          {sessionSaved ? t('timer.sessionLogged') : t('timer.sessionCompleteBrief')}
         </p>
       )}
 
       {/* Controls */}
       <div className="timer-controls">
-        <button onClick={reset} className="timer-btn">Reset</button>
+        <button onClick={reset} className="timer-btn">{t('timer.reset')}</button>
         {isRunning
-          ? <button onClick={pause} className="timer-btn timer-btn-pause">Pause</button>
+          ? <button onClick={pause} className="timer-btn timer-btn-pause">{t('timer.pause')}</button>
           : <button onClick={start} className="timer-btn timer-btn-primary">{label}</button>
         }
       </div>

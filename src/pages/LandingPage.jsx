@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Navigation from '../components/Navigation'
 import Footer from '../components/Footer'
+import { useTranslation } from '../contexts/LanguageContext'
 import './LandingPage.css'
 
 const LiveClock = () => {
@@ -161,7 +162,49 @@ const SketchBookshelf = () => {
   )
 }
 
+const PROOF_ITEMS = [
+  { stat: '500+', label: 'Students' },
+  { stat: '10,000+', label: 'Focus Hours Logged' },
+  { stat: '50,000+', label: 'Tasks Completed' },
+  { stat: '4.9★', label: 'Student Rating' },
+  { stat: '98%', label: 'Say It Improved Focus' },
+  { stat: '12', label: 'Countries' },
+]
+
+const SocialProofStrip = () => (
+  <section className="proof-strip">
+    <div className="proof-track">
+      {[...PROOF_ITEMS, ...PROOF_ITEMS].map((item, i) => (
+        <div key={i} className="proof-item">
+          <span className="proof-stat">{item.stat}</span>
+          <span className="proof-label">{item.label}</span>
+          <span className="proof-dot">·</span>
+        </div>
+      ))}
+    </div>
+  </section>
+)
+
 const LandingPage = ({ onNavigate }) => {
+  const { t } = useTranslation()
+
+  // Mouse parallax for 3D hero
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 })
+  const spotlightRef = useRef(null)
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const x = e.clientX / window.innerWidth
+      const y = e.clientY / window.innerHeight
+      setMousePos({ x, y })
+      // Update spotlight position directly for performance
+      if (spotlightRef.current) {
+        spotlightRef.current.style.background = `radial-gradient(600px circle at ${e.clientX}px ${e.clientY}px, var(--primary), transparent 70%)`
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove, { passive: true })
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
 
   // Scroll reveal: observe .reveal elements
   useEffect(() => {
@@ -186,6 +229,13 @@ const LandingPage = ({ onNavigate }) => {
   const parallaxOffset = Math.min(scrollY * 0.4, 200)
   const parallaxOpacity = Math.max(1 - scrollY / 600, 0)
   const parallaxScale = Math.max(1 - scrollY / 3000, 0.92)
+
+  // 3D tilt from mouse (centered at 0.5, 0.5)
+  const tiltX = (mousePos.y - 0.5) * 12  // vertical tilt
+  const tiltY = (mousePos.x - 0.5) * -12 // horizontal tilt
+  const moveX = (mousePos.x - 0.5) * 30
+  const moveY = (mousePos.y - 0.5) * 20
+
   return (
     <>
       <div className="landing-page">
@@ -193,46 +243,75 @@ const LandingPage = ({ onNavigate }) => {
         
         <main className="editorial-main">
           {/* Header Volume I */}
-          <section id="manifesto" className="container mt-20 pt-12" ref={heroRef}>
+          <section id="manifesto" className="hero-section container mt-20 pt-12" ref={heroRef}>
+            {/* Cursor spotlight overlay */}
+            <div className="hero-spotlight" ref={spotlightRef} aria-hidden="true" />
+
+            {/* Animated gradient orbs background — react to mouse */}
+            <div className="hero-bg" aria-hidden="true">
+              <div style={{ transform: `translate(${moveX * -1.5}px, ${moveY * -1.5}px)`, transition: 'transform 0.4s ease-out' }}>
+                <div className="hero-orb hero-orb--1" />
+              </div>
+              <div style={{ transform: `translate(${moveX * 1.2}px, ${moveY * 1.2}px)`, transition: 'transform 0.5s ease-out' }}>
+                <div className="hero-orb hero-orb--2" />
+              </div>
+              <div style={{ transform: `translate(${moveX * -0.8}px, ${moveY * -0.8}px)`, transition: 'transform 0.6s ease-out' }}>
+                <div className="hero-orb hero-orb--3" />
+              </div>
+              <div className="hero-grid" />
+            </div>
+
+            {/* 3D perspective title */}
             <h1
-              className="text-8xl font-serif text-center mt-12 mb-8"
+              className="text-8xl font-serif text-center mt-12 mb-8 hero-3d-text"
               style={{
-                transform: `translateY(-${parallaxOffset}px) scale(${parallaxScale})`,
+                transform: `translateY(-${parallaxOffset}px) scale(${parallaxScale}) perspective(1000px) rotateX(${tiltX * 0.5}deg) rotateY(${tiltY * 0.5}deg) translate(${moveX * 0.3}px, ${moveY * 0.2}px)`,
                 opacity: parallaxOpacity,
-                transition: 'opacity 0.1s linear',
+                transition: 'transform 0.2s ease-out, opacity 0.1s linear',
                 willChange: 'transform, opacity',
+                position: 'relative',
+                zIndex: 2,
+                textShadow: `${moveX * -0.3}px ${moveY * -0.3}px 20px rgba(var(--primary-rgb, 200, 80, 40), 0.15)`,
               }}
             >
               <span className="title-line-wrapper">
-                <span className="title-line">The Art of</span>
+                <span className="title-line">{t('landing.heroTitle1')}</span>
               </span>
               <br/>
               <span className="title-line-wrapper">
-                <i className="text-primary text-serif-italic title-line title-line-delay-1">Focus.</i>
+                <i className="text-primary text-serif-italic title-line title-line-delay-1">{t('landing.heroTitle2')}</i>
               </span>
             </h1>
             
+            {/* Subtitle — lighter parallax layer */}
             <div
               className="flex justify-center mt-12 mb-20 text-center mx-auto"
               style={{
                 maxWidth: '48rem',
-                transform: `translateY(-${parallaxOffset * 0.6}px)`,
+                transform: `translateY(-${parallaxOffset * 0.6}px) translate(${moveX * 0.15}px, ${moveY * 0.1}px)`,
                 opacity: parallaxOpacity,
                 willChange: 'transform, opacity',
+                position: 'relative',
+                zIndex: 2,
+                transition: 'transform 0.25s ease-out',
               }}
             >
               <p className="editorial-lead text-lg font-medium cinematic-fade-in">
-                We have traded scattered digital boards for an elegant, distraction-free ledger. 
-                A curated canvas for the modern student. Reclaim your attention. 
+                {t('landing.heroSubtitle')}
               </p>
             </div>
             
-            <div className="flex justify-center mt-8 reveal reveal-delay-2">
+            {/* CTA — barely moves, feels grounded */}
+            <div className="flex justify-center mt-8 reveal reveal-delay-2" style={{ 
+              position: 'relative', zIndex: 2,
+              transform: `translate(${moveX * 0.05}px, ${moveY * 0.05}px)`,
+              transition: 'transform 0.3s ease-out',
+            }}>
               <button 
                 className="btn-primary" 
                 onClick={() => onNavigate('auth')}
               >
-                Enter the Canvas
+                {t('landing.heroCta')}
               </button>
             </div>
           </section>
@@ -242,9 +321,9 @@ const LandingPage = ({ onNavigate }) => {
             <div className="container">
               <div className="pt-20 border-t border-ink">
                 <div className="flex justify-between items-end mb-12 reveal">
-                  <h2 className="text-6xl font-serif">The Instruments.</h2>
+                  <h2 className="text-6xl font-serif">{t('landing.instrumentsTitle')}</h2>
                   <p className="text-sm uppercase tracking-widest max-w-xs text-right hidden-mobile">
-                    Every tool crafted with absolute purpose. No surplus features.
+                    {t('landing.instrumentsSubtitle')}
                   </p>
                 </div>
 
@@ -252,10 +331,10 @@ const LandingPage = ({ onNavigate }) => {
                   {/* Feature 1 */}
                   <div className="ed-card border-r border-ink pr-8 flex-col justify-between reveal reveal-delay-1">
                     <div>
-                      <div className="ed-numero font-serif text-4xl mb-4 text-accent">01.</div>
-                      <h3 className="text-2xl font-bold uppercase tracking-tight mb-4">The Ledger</h3>
+                      <div className="ed-numero font-serif text-4xl mb-4 text-accent">{t('landing.feature1Number')}</div>
+                      <h3 className="text-2xl font-bold uppercase tracking-tight mb-4">{t('landing.feature1Title')}</h3>
                       <p className="text-base text-muted">
-                        A high-contrast, typographic approach to task planning. Discard overwhelming boards for a linear timeline of your day.
+                        {t('landing.feature1Desc')}
                       </p>
                     </div>
                     <div className="ed-sketch mt-8">
@@ -266,10 +345,10 @@ const LandingPage = ({ onNavigate }) => {
                   {/* Feature 2 */}
                   <div className="ed-card border-r border-ink px-8 flex-col justify-between reveal reveal-delay-2">
                     <div>
-                      <div className="ed-numero font-serif text-4xl mb-4 text-primary">02.</div>
-                      <h3 className="text-2xl font-bold uppercase tracking-tight mb-4">Chronos</h3>
+                      <div className="ed-numero font-serif text-4xl mb-4 text-primary">{t('landing.feature2Number')}</div>
+                      <h3 className="text-2xl font-bold uppercase tracking-tight mb-4">{t('landing.feature2Title')}</h3>
                       <p className="text-base text-muted">
-                        An analog-inspired focus engine. Time is measured in elegant arcs, urging you into states of flow for exactly twenty-five minutes.
+                        {t('landing.feature2Desc')}
                       </p>
                     </div>
                     <div className="ed-sketch flex justify-center mt-8">
@@ -280,10 +359,10 @@ const LandingPage = ({ onNavigate }) => {
                   {/* Feature 3 */}
                   <div className="ed-card pl-8 flex-col justify-between reveal reveal-delay-3">
                     <div>
-                      <div className="ed-numero font-serif text-4xl mb-4 text-accent">03.</div>
-                      <h3 className="text-2xl font-bold uppercase tracking-tight mb-4">The Archive</h3>
+                      <div className="ed-numero font-serif text-4xl mb-4 text-accent">{t('landing.feature3Number')}</div>
+                      <h3 className="text-2xl font-bold uppercase tracking-tight mb-4">{t('landing.feature3Title')}</h3>
                       <p className="text-base text-muted">
-                        Your notes, stacked bound beautifully in an interactive bookshelf format. Fast contextual switching.
+                        {t('landing.feature3Desc')}
                       </p>
                     </div>
                     <div className="ed-sketch mt-8">
@@ -295,15 +374,18 @@ const LandingPage = ({ onNavigate }) => {
             </div>
           </section>
 
+          {/* Social Proof Marquee */}
+          <SocialProofStrip />
+
           {/* Pricing section */}
           <section id="subscribe" className="mt-20">
             <div className="container">
               <div className="py-20 border-y border-ink">
 
                 <div className="lp-pricing-header">
-                  <h2 className="text-6xl font-serif">Gain Access.</h2>
+                  <h2 className="text-6xl font-serif">{t('landing.pricingTitle')}</h2>
                   <p className="text-sm uppercase tracking-widest text-muted max-w-xs text-right hidden-mobile">
-                    Every instrument. One canvas. One decision.
+                    {t('landing.pricingSubtitle')}
                   </p>
                 </div>
 
@@ -312,23 +394,23 @@ const LandingPage = ({ onNavigate }) => {
                   {/* Free */}
                   <div className="lp-price-card">
                     <div className="lp-price-top">
-                      <div className="lp-price-ed-no font-serif text-accent">01.</div>
-                      <div className="lp-price-tier">The Canvas — Free</div>
-                      <div className="lp-price-amount font-serif">₹0<span className="lp-price-period"> / forever</span></div>
+                      <div className="lp-price-ed-no font-serif text-accent">{t('landing.freeEdNumber')}</div>
+                      <div className="lp-price-tier">{t('landing.freeTier')}</div>
+                      <div className="lp-price-amount font-serif">{t('landing.freePrice')}<span className="lp-price-period">{t('landing.freePeriod')}</span></div>
                     </div>
                     <ul className="lp-feature-list">
-                      <li>✓ Focus Timer — 25, 45, 60 min</li>
-                      <li>✓ The Ledger — up to 20 tasks</li>
-                      <li>✓ The Library — up to 10 notes</li>
-                      <li>✓ Goals tracker — up to 5 goals</li>
-                      <li>✓ Analytics — 7-day chart</li>
-                      <li>✓ Achievement badges</li>
-                      <li className="lp-feature-locked">✕ Exam Planner</li>
-                      <li className="lp-feature-locked">✕ Resume Builder</li>
-                      <li className="lp-feature-locked">✕ Custom Dashboard Layout</li>
+                      <li>{t('landing.freeFeature1')}</li>
+                      <li>{t('landing.freeFeature2')}</li>
+                      <li>{t('landing.freeFeature3')}</li>
+                      <li>{t('landing.freeFeature4')}</li>
+                      <li>{t('landing.freeFeature5')}</li>
+                      <li>{t('landing.freeFeature6')}</li>
+                      <li className="lp-feature-locked">{t('landing.freeFeature7')}</li>
+                      <li className="lp-feature-locked">{t('landing.freeFeature8')}</li>
+                      <li className="lp-feature-locked">{t('landing.freeFeature9')}</li>
                     </ul>
                     <button className="lp-price-btn lp-price-btn--free" onClick={() => onNavigate('auth')}>
-                      Begin Free
+                      {t('landing.freeCta')}
                     </button>
                   </div>
 
@@ -337,25 +419,25 @@ const LandingPage = ({ onNavigate }) => {
 
                   {/* Pro */}
                   <div className="lp-price-card lp-price-card--pro">
-                    <div className="lp-popular-tag">Scholar's Choice</div>
+                    <div className="lp-popular-tag">{t('landing.proTag')}</div>
                     <div className="lp-price-top">
-                      <div className="lp-price-ed-no font-serif" style={{ color: 'var(--primary)' }}>02.</div>
-                      <div className="lp-price-tier">The Scholar Pass — Pro</div>
-                      <div className="lp-price-amount font-serif">₹99<span className="lp-price-period"> / month</span></div>
+                      <div className="lp-price-ed-no font-serif" style={{ color: 'var(--primary)' }}>{t('landing.proEdNumber')}</div>
+                      <div className="lp-price-tier">{t('landing.proTier')}</div>
+                      <div className="lp-price-amount font-serif">{t('landing.proPrice')}<span className="lp-price-period">{t('landing.proPeriod')}</span></div>
                     </div>
                     <ul className="lp-feature-list">
-                      <li>✓ Everything in Free</li>
-                      <li className="lp-feature-pro">✓ Exam Planner + Countdown</li>
-                      <li className="lp-feature-pro">✓ Resume Builder + PDF Export</li>
-                      <li className="lp-feature-pro">✓ Unlimited Tasks, Notes & Goals</li>
-                      <li className="lp-feature-pro">✓ Custom Dashboard Layout</li>
-                      <li className="lp-feature-pro">✓ Full Analytics + Streaks</li>
-                      <li className="lp-feature-pro">✓ Priority support</li>
+                      <li>{t('landing.proFeature1')}</li>
+                      <li className="lp-feature-pro">{t('landing.proFeature2')}</li>
+                      <li className="lp-feature-pro">{t('landing.proFeature3')}</li>
+                      <li className="lp-feature-pro">{t('landing.proFeature4')}</li>
+                      <li className="lp-feature-pro">{t('landing.proFeature5')}</li>
+                      <li className="lp-feature-pro">{t('landing.proFeature6')}</li>
+                      <li className="lp-feature-pro">{t('landing.proFeature7')}</li>
                     </ul>
                     <button className="lp-price-btn lp-price-btn--pro" onClick={() => onNavigate('auth')}>
-                      Procure the Pass →
+                      {t('landing.proCta')}
                     </button>
-                    <div className="lp-price-note">UPI · Cards · Net Banking via Razorpay</div>
+                    <div className="lp-price-note">{t('landing.proPayNote')}</div>
                   </div>
 
                 </div>
