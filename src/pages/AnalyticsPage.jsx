@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useTranslation } from '../contexts/LanguageContext'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend
@@ -43,7 +44,7 @@ const AnalyticsPage = ({ onNavigate }) => {
       const { data: sessions } = await supabase
         .from('sessions')
         .select('duration_seconds, created_at')
-        .eq('user_id', user.id)
+        .eq('user_id', user)
         .gte('created_at', sevenAgo.toISOString())
 
       // Map sessions to days
@@ -59,13 +60,13 @@ const AnalyticsPage = ({ onNavigate }) => {
 
       // Total hours all time
       const { data: allSessions } = await supabase
-        .from('sessions').select('duration_seconds').eq('user_id', user.id)
+        .from('sessions').select('duration_seconds').eq('user_id', user)
       const total = (allSessions || []).reduce((a, s) => a + s.duration_seconds, 0)
       setTotalHours((total / 3600).toFixed(1))
 
       // Task stats
       const { data: tasks } = await supabase
-        .from('tasks').select('completed').eq('user_id', user.id)
+        .from('tasks').select('completed').eq('user_id', user)
       const completed = (tasks || []).filter(t => t.completed).length
       setTaskStats({ completed, pending: (tasks || []).length - completed, total: (tasks || []).length })
 

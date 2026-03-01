@@ -83,7 +83,7 @@ const StudyHeatmap = () => {
         const { data: sessions, error } = await supabase
           .from('sessions')
           .select('duration_seconds, created_at')
-          .eq('user_id', user.id)
+          .eq('user_id', user)
           .gte('created_at', yearAgo.toISOString())
 
         if (error) throw error

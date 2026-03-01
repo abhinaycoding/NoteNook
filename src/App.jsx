@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import LandingPage from './pages/LandingPage'
-import Dashboard from './pages/Dashboard'
 import AuthPage from './pages/AuthPage'
+import Dashboard from './pages/Dashboard'
 import ProfileSetup from './pages/ProfileSetup'
 import LibraryPage from './pages/LibraryPage'
 import AnalyticsPage from './pages/AnalyticsPage'
@@ -21,13 +21,30 @@ import { useTheme } from './contexts/ThemeContext'
 import { useTranslation } from './contexts/LanguageContext'
 import './App.css'
 
-const PROTECTED = ['dashboard', 'setup', 'library', 'analytics', 'exams', 'goals', 'resume', 'pricing', 'calendar', 'rooms', 'room']
+/**
+ * ProtectedRoute — defined OUTSIDE App so it's a stable component reference
+ * and doesn't remount every time App re-renders.
+ */
+const ProtectedRoute = ({ user, profile, currentPage, onRedirect, children }) => {
+  useEffect(() => {
+    if (!user) {
+      onRedirect('auth')
+    } else if (user && !profile && currentPage !== 'setup') {
+      onRedirect('setup')
+    }
+  }, [user, profile, currentPage, onRedirect])
+
+  if (!user) return null
+  if (user && !profile && currentPage !== 'setup') return null
+  return children
+}
+
 
 function App() {
   const [currentPage, setCurrentPage] = useState('landing')
   const [activeRoomId, setActiveRoomId] = useState(null)
   const [activeRoomName, setActiveRoomName] = useState('')
-  const { user, profile, loading: authLoading, isPasswordResetFlow } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
   const { isDark, toggle, theme, setThemeById, themes } = useTheme()
   const { language, setLanguage, languages } = useTranslation()
   const [themePanelOpen, setThemePanelOpen] = useState(false)
@@ -40,42 +57,32 @@ function App() {
   }
 
   const navigateTo = (page) => {
-    if (PROTECTED.includes(page) && !user) {
-      setCurrentPage('auth')
-      return
-    }
     setCurrentPage(page)
   }
 
-  // Navigation effect — only runs after auth is fully initialized
+  // ── OAuth Redirect Handler ─────────────────────────────────────────────────
+  // After Google OAuth completes, Supabase fires onAuthStateChange which sets
+  // `user`. At that point currentPage is still 'landing' or 'auth', so we
+  // need to push the user forward to the right destination.
   useEffect(() => {
-    console.log('[App Nav] State Check:', { user: !!user, hasProfile: !!profile, authLoading, currentPage })
-
-    if (authLoading) return
-
-    if (isPasswordResetFlow) {
-      console.log('[App Nav] Redirecting to auth (Password Reset)')
-      setCurrentPage('auth')
-      return
+    if (!user) return
+    if (currentPage === 'landing' || currentPage === 'auth') {
+      // New Google users have no profile yet → send to setup
+      // Returning users have a profile → send to dashboard
+      navigateTo(profile ? 'dashboard' : 'setup')
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile])
 
-    // Kick unauthenticated users off protected pages
-    if (!user && PROTECTED.includes(currentPage)) {
-      console.log('[App Nav] Unauthorized access - redirecting to landing')
-      setCurrentPage('landing')
-      return
-    }
 
-    // Once user is ready, redirect away from auth/landing
-    if (user) {
-      const needsSetup = !profile || !profile.student_type || !profile.target_exam || !profile.goals
-      if (currentPage === 'auth' || currentPage === 'landing') {
-        setCurrentPage(needsSetup ? 'setup' : 'dashboard')
-      } else if (currentPage === 'dashboard' && needsSetup) {
-        setCurrentPage('setup')
-      }
-    }
-  }, [user, profile, authLoading, currentPage, isPasswordResetFlow])
+  // Global loading state while AuthContext resolves session
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--bg, #FAF8F4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid var(--text-primary, #1a1a1a)', borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -144,33 +151,69 @@ function App() {
       <div key={currentPage} className="page-transition">
         {currentPage === 'landing' && <LandingPage onNavigate={navigateTo} />}
         {currentPage === 'auth' && <AuthPage onNavigate={navigateTo} />}
-        {currentPage === 'setup' && user && <ProfileSetup onNavigate={navigateTo} user={user} />}
-        {currentPage === 'dashboard' && user && <Dashboard onNavigate={navigateTo} />}
-        {currentPage === 'library' && user && <LibraryPage onNavigate={navigateTo} user={user} />}
-        {currentPage === 'analytics' && user && <AnalyticsPage onNavigate={navigateTo} />}
-        {currentPage === 'goals' && user && <GoalsPage onNavigate={navigateTo} />}
-        {currentPage === 'pricing' && user && <PricingPage onNavigate={navigateTo} />}
-        {currentPage === 'calendar' && user && <CalendarPage onNavigate={navigateTo} />}
-        {currentPage === 'rooms' && user && <StudyRoomsListPage onNavigate={navigateTo} onEnterRoom={enterRoom} />}
-        {currentPage === 'room' && user && activeRoomId && (
-          <StudyRoomPage
-            roomId={activeRoomId}
-            roomName={activeRoomName}
-            onNavigate={navigateTo}
-            onBack={() => navigateTo('rooms')}
-          />
+        
+        {currentPage === 'setup' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <ProfileSetup onNavigate={navigateTo} />
+          </ProtectedRoute>
+        )}
+        
+        {currentPage === 'dashboard' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <Dashboard onNavigate={navigateTo} />
+          </ProtectedRoute>
+        )}
+        {currentPage === 'library' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <LibraryPage onNavigate={navigateTo} />
+          </ProtectedRoute>
+        )}
+        {currentPage === 'analytics' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <AnalyticsPage onNavigate={navigateTo} />
+          </ProtectedRoute>
+        )}
+        {currentPage === 'goals' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <GoalsPage onNavigate={navigateTo} />
+          </ProtectedRoute>
+        )}
+        {currentPage === 'pricing' && <PricingPage onNavigate={navigateTo} />}
+        {currentPage === 'calendar' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <CalendarPage onNavigate={navigateTo} />
+          </ProtectedRoute>
+        )}
+        {currentPage === 'rooms' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <StudyRoomsListPage onNavigate={navigateTo} onEnterRoom={enterRoom} />
+          </ProtectedRoute>
+        )}
+        {currentPage === 'room' && activeRoomId && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <StudyRoomPage
+              roomId={activeRoomId}
+              roomName={activeRoomName}
+              onNavigate={navigateTo}
+              onBack={() => navigateTo('rooms')}
+            />
+          </ProtectedRoute>
         )}
 
         {/* Pro-gated pages */}
-        {currentPage === 'exams' && user && (
-          <ProGate feature="Exam Planner" onNavigatePricing={navigateTo}>
-            <ExamPlannerPage onNavigate={navigateTo} />
-          </ProGate>
+        {currentPage === 'exams' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <ProGate feature="Exam Planner" onNavigatePricing={navigateTo}>
+              <ExamPlannerPage onNavigate={navigateTo} />
+            </ProGate>
+          </ProtectedRoute>
         )}
-        {currentPage === 'resume' && user && (
-          <ProGate feature="Resume Builder" onNavigatePricing={navigateTo}>
-            <ResumeBuilderPage onNavigate={navigateTo} />
-          </ProGate>
+        {currentPage === 'resume' && (
+          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+            <ProGate feature="Resume Builder" onNavigatePricing={navigateTo}>
+              <ResumeBuilderPage onNavigate={navigateTo} />
+            </ProGate>
+          </ProtectedRoute>
         )}
       </div>
 
@@ -178,23 +221,21 @@ function App() {
       <ZenMode />
 
       {/* Command Palette (Ctrl+K) */}
-      {user && (
-        <CommandPalette
-          onNavigate={navigateTo}
-          onAction={(action) => {
-            if (action === 'toggle-theme') toggle()
-            if (action === 'zen') {
-              window.dispatchEvent(new CustomEvent('activate-zen'))
-            }
-            if (action === 'focus-task') {
-              navigateTo('dashboard')
-              setTimeout(() => {
-                document.querySelector('.task-add-input')?.focus()
-              }, 300)
-            }
-          }}
-        />
-      )}
+      <CommandPalette
+        onNavigate={navigateTo}
+        onAction={(action) => {
+          if (action === 'toggle-theme') toggle()
+          if (action === 'zen') {
+            window.dispatchEvent(new CustomEvent('activate-zen'))
+          }
+          if (action === 'focus-task') {
+            navigateTo('dashboard')
+            setTimeout(() => {
+              document.querySelector('.task-add-input')?.focus()
+            }, 300)
+          }
+        }}
+      />
     </>
   )
 }

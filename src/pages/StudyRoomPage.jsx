@@ -59,7 +59,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
   const [activeEmotes, setActiveEmotes] = useState([])
   const chatBottomRef = useRef(null)
 
-  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Scholar'
+  const displayName = profile?.full_name || 'Scholar'
 
   // ── Fetch room code ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -74,7 +74,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
   // ── Supabase Realtime Presence ───────────────────────────────────────────
   useEffect(() => {
     const channel = supabase.channel(`room:${roomId}`, {
-      config: { presence: { key: user.id } }
+      config: { presence: { key: user?.id } }
     })
 
     channel
@@ -90,14 +90,14 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
         triggerEmote(payload.payload.emoji)
       })
       .on('broadcast', { event: 'nudge' }, (payload) => {
-        if (payload.payload.target_id === user.id) {
+        if (payload.payload.target_id === user?.id) {
           handleReceivedNudge(payload.payload.from_name)
         }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({
-            user_id: user.id,
+            user_id: user?.id,
             display_name: displayName,
             avatar_id: profile?.avatar_id || 'owl',
             timer_status: isRunning ? 'focusing' : isComplete ? 'done' : 'idle',
@@ -115,14 +115,14 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
       channel.untrack()
       supabase.removeChannel(channel)
     }
-  }, [roomId, user.id, displayName, isRunning, isComplete, secondsLeft, isZenModeActive, activeTrackId, profile?.avatar_id])
+  }, [roomId, user?.id, displayName, isRunning, isComplete, secondsLeft, isZenModeActive, activeTrackId, profile?.avatar_id])
 
   // ── Sync local status to presence ───────────────────────────────────────
   useEffect(() => {
-    if (channelRef.current && user) {
+    if (channelRef.current && user?.id) {
       channelRef.current.track({
-        user_id: user.id,
-        display_name: displayName,
+        user_id: user?.id,
+        user_name: profile?.full_name || 'Anonymous Scholar',
         avatar_id: profile?.avatar_id || 'owl',
         seconds_left: secondsLeft,
         is_zen: isZenModeActive,
@@ -131,7 +131,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
         online_at: new Date().toISOString(),
       })
     }
-  }, [isRunning, isComplete, secondsLeft, isZenModeActive, activeTrackId, user, displayName, profile?.avatar_id])
+  }, [isRunning, isComplete, secondsLeft, isZenModeActive, activeTrackId, user?.id, displayName, profile?.avatar_id])
 
   // ── Fetch & subscribe to shared tasks ───────────────────────────────────
   useEffect(() => {
@@ -181,7 +181,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
       const { data, error } = await supabase.from('room_tasks').insert([
         {
           room_id: roomId,
-          created_by: user.id,
+          created_by: guestId,
           title: taskObj.title,
         }
       ]).select()
@@ -241,7 +241,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
     if (!chatInput.trim() || !channelRef.current) return
     const msg = {
       id: crypto.randomUUID(),
-      user_id: user.id,
+      user_id: guestId,
       display_name: displayName,
       text: chatInput.trim(),
       created_at: new Date().toISOString(),
@@ -367,7 +367,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                 )}
                 {members.map(m => {
                   const arche = getArchetype(m.avatar_id)
-                  const isMe = m.user_id === user.id
+                  const isMe = m.user_id === guestId
                   const isNudged = (isMe && nudgedMemberId === 'me') || (!isMe && nudgedMemberId === m.user_id)
                   const currentTrack = m.is_zen ? getZenTrack(m.active_track_id) : null
 
@@ -451,7 +451,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
               <div className="room-panel-title">💬 Live Chat</div>
               <div className="chat-messages">
                 {messages.map(msg => {
-                  const isMe = msg.user_id === user.id
+                  const isMe = msg.user_id === guestId
                   return (
                     <div key={msg.id} className={`chat-msg-row ${isMe ? 'chat-msg-row--you' : ''}`}>
                       {!isMe && <div className="chat-msg-avatar">{(msg.display_name || 'U')[0].toUpperCase()}</div>}
@@ -493,7 +493,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
            <div className="whiteboard-overlay-container">
               <SharedWhiteboard 
                 channel={channelRef.current} 
-                user={user} 
+                user={{ id: guestId, ...guestProfile }} 
                 onClose={() => setShowWhiteboard(false)} 
               />
            </div>

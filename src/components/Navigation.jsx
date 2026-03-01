@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
 import './Navigation.css'
 
 const Navigation = ({ onNavigate, isAuthPage }) => {
@@ -22,14 +22,8 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
     }
   }
 
-  const handleLogin = () => {
-    if (user) onNavigate('dashboard')
-    else onNavigate('auth')
-  }
-
-  const handleBegin = () => {
-    if (user) onNavigate('dashboard')
-    else onNavigate('auth')
+  const handleOpenApp = () => {
+    onNavigate(user ? 'dashboard' : 'auth')
   }
 
   return (
@@ -54,11 +48,8 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
         {/* Right: Actions */}
         {!isAuthPage && (
           <div className="nav-actions">
-            <button className="text-sm font-medium uppercase tracking-wide hover:italic hidden-mobile-action" onClick={handleLogin}>
-              {user ? t('nav.dashboard') : t('nav.logIn')}
-            </button>
-            <button className="btn-primary ml-4" onClick={handleBegin}>
-              {user ? t('nav.openApp') : t('nav.begin')}
+            <button className="btn-primary" onClick={handleOpenApp}>
+              {user ? t('nav.openApp') : 'Log In / Sign Up'}
             </button>
             <button 
               className="mobile-nav-hamburger" 
@@ -77,7 +68,9 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
           <button className="nav-item" onClick={() => { scrollTo('manifesto'); setMobileMenuOpen(false); }}>{t('nav.manifesto')}</button>
           <button className="nav-item" onClick={() => { scrollTo('tools'); setMobileMenuOpen(false); }}>{t('nav.theTools')}</button>
           <button className="nav-item" onClick={() => { scrollTo('subscribe'); setMobileMenuOpen(false); }}>{t('nav.subscribe')}</button>
-          <button className="nav-item" onClick={handleLogin}>{user ? t('nav.dashboard') : t('nav.logIn')}</button>
+          <button className="nav-item" onClick={() => { handleOpenApp(); setMobileMenuOpen(false); }}>
+            {user ? t('nav.dashboard') : 'Log In / Sign Up'}
+          </button>
         </div>
       )}
     </header>

@@ -30,7 +30,7 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
       const { data, error } = await supabase
         .from('room_members')
         .select('room_id, study_rooms(id, name, code, created_by, created_at)')
-        .eq('user_id', user.id)
+        .eq('user_id', user)
         .order('joined_at', { ascending: false })
 
       if (error) throw error
@@ -57,7 +57,7 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
 
       await supabase.from('room_members').insert([{
         room_id: room.id,
-        user_id: user.id,
+        user_id: user,
         display_name: displayName
       }])
 
@@ -91,7 +91,7 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
         .from('room_members')
         .select('user_id')
         .eq('room_id', room.id)
-        .eq('user_id', user.id)
+        .eq('user_id', user)
         .single()
 
       if (!existing) {

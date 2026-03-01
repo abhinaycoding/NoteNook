@@ -18,7 +18,7 @@ import DailyScore from '../components/DailyScore'
 import './Dashboard.css'
 
 const Dashboard = ({ onNavigate }) => {
-  const { user, signOut } = useAuth()
+  const { user, profile, signOut } = useAuth()
   const { isPro } = usePlan()
   const { t, language } = useTranslation()
   const [isEditing, setIsEditing] = useState(false)
@@ -29,7 +29,7 @@ const Dashboard = ({ onNavigate }) => {
   // Compute greeting
   const hour = new Date().getHours()
   const timeGreeting = hour < 12 ? t('dashboard.goodMorning') : hour < 17 ? t('dashboard.goodAfternoon') : t('dashboard.goodEvening')
-  const userName = user?.user_metadata?.full_name?.split(' ')[0] || t('dashboard.scholar')
+  const userName = profile?.full_name?.split(' ')[0] || t('dashboard.scholar')
   
   // Use locale-aware date formatting
   const localeMap = { en: 'en-US', hi: 'hi-IN', es: 'es-ES' }
@@ -62,10 +62,6 @@ const Dashboard = ({ onNavigate }) => {
     calcStreak()
   }, [user])
 
-  const handleLogout = () => {
-    signOut()
-    onNavigate('landing')
-  }
 
   return (
     <>
@@ -120,8 +116,19 @@ const Dashboard = ({ onNavigate }) => {
               >
                 {isPro ? t('dashboard.plans') : t('dashboard.upgrade')}
               </button>
+
+              <button
+                onClick={async () => {
+                  await signOut()
+                  onNavigate('landing')
+                }}
+                className="dash-nav-btn"
+                title="Sign Out"
+                style={{ opacity: 0.6, fontSize: '0.7rem' }}
+              >
+                ↪ Sign Out
+              </button>
               
-              <button onClick={handleLogout} className="dash-nav-btn text-muted hover:text-primary">{t('dashboard.signOut')}</button>
             </div>
           </div>
 
@@ -176,12 +183,12 @@ const Dashboard = ({ onNavigate }) => {
               {t('dashboard.resume')} {!isPro && <span className="pro-lock-badge">Pro</span>}
             </button>
             <button
-              onClick={() => { setIsMobileMenuOpen(false); onNavigate('pricing'); }}
-              className={`text-left text-sm uppercase hover:text-primary transition-colors ${!isPro ? 'text-primary font-bold' : ''}`}
+              onClick={async () => { await signOut(); onNavigate('landing') }}
+              className="text-left text-sm uppercase hover:text-primary transition-colors"
+              style={{ opacity: 0.6 }}
             >
-              {isPro ? t('dashboard.plans') : t('dashboard.upgrade')}
+              ↪ Sign Out
             </button>
-            <button onClick={handleLogout} className="text-left text-sm uppercase text-muted hover:text-primary transition-colors">{t('dashboard.signOut')}</button>
           </div>
         )}
       </header>

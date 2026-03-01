@@ -29,16 +29,16 @@ const CalendarPage = ({ onNavigate }) => {
     const load = async () => {
       const [sessRes, taskRes] = await Promise.all([
         supabase.from('sessions').select('created_at, duration_seconds, completed')
-          .eq('user_id', user.id).eq('completed', true),
+          .eq('user_id', user).eq('completed', true),
         supabase.from('tasks').select('id, title, due_date, completed, created_at')
-          .eq('user_id', user.id),
+          .eq('user_id', user),
       ])
       if (sessRes.data) setSessions(sessRes.data)
       if (taskRes.data) setTasks(taskRes.data)
 
       // Load exam date
-      const saved = localStorage.getItem(`ff_exam_date_${user.id}`)
-      const savedName = localStorage.getItem(`ff_exam_name_${user.id}`)
+      const saved = localStorage.getItem(`ff_exam_date_${user}`)
+      const savedName = localStorage.getItem(`ff_exam_name_${user}`)
       if (saved) setExamDate(new Date(saved))
       if (savedName) setExamName(savedName)
     }

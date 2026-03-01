@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import './ResumeBuilderPage.css'
 

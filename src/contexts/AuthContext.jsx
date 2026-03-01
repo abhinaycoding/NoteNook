@@ -1,14 +1,22 @@
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useState, useEffect, useRef, useContext } from 'react'
 import { supabase } from '../lib/supabase'
 
-const AuthContext = createContext({})
+export const AuthContext = createContext({})
 
 export const AuthProvider = ({ children }) => {
+  const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [isPasswordResetFlow, setIsPasswordResetFlow] = useState(false)
+  // Track whether we've already resolved loading so we never set it true again
+  const resolved = useRef(false)
+
+  const resolveLoading = () => {
+    if (!resolved.current) {
+      resolved.current = true
+      setLoading(false)
+    }
+  }
 
   const fetchProfile = async (userId) => {
     try {
@@ -17,93 +25,71 @@ export const AuthProvider = ({ children }) => {
         .select('*')
         .eq('id', userId)
         .single()
+
       if (!error && data) {
         setProfile(data)
+      } else {
+        // PGRST116 = no row found (user needs ProfileSetup)
+        setProfile(null)
       }
     } catch (err) {
-      console.error('[AuthContext] fetchProfile error:', err)
+      console.error('Fetch profile error:', err)
+    } finally {
+      resolveLoading()
     }
   }
 
   useEffect(() => {
-    // Step 1: Restore existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user)
-        fetchProfile(session.user.id).finally(() => setLoading(false))
-      } else {
-        setLoading(false)
-      }
-    })
+    // Safety timeout: never stay on the loading screen for more than 5 seconds
+    // Handles network issues, Supabase downtime, etc.
+    const safetyTimeout = setTimeout(() => {
+      console.warn('AuthContext: safety timeout reached — forcing loading=false')
+      resolveLoading()
+    }, 5000)
 
-    // Step 2: Listen for any future auth events
+    // onAuthStateChange is the single source of truth.
+    // It fires INITIAL_SESSION immediately (synchronously before any awaits)
+    // so we don't need a separate getSession() call.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('[Auth] event:', event)
+      async (_event, currentSession) => {
+        setSession(currentSession)
+        setUser(currentSession?.user ?? null)
 
-        if (event === 'PASSWORD_RECOVERY') {
-          setIsPasswordResetFlow(true)
-          return
-        }
-
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user)
-          await fetchProfile(session.user.id)
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
+        if (currentSession?.user) {
+          await fetchProfile(currentSession.user.id)
+        } else {
           setProfile(null)
-          setIsPasswordResetFlow(false)
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          setUser(session.user)
+          resolveLoading()
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(safetyTimeout)
+      subscription.unsubscribe()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    // Reset local state immediately so UI reacts instantly
     setUser(null)
+    setSession(null)
     setProfile(null)
-    setIsPasswordResetFlow(false)
+    try {
+      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('Sign out error:', err)
+    }
   }
 
   const value = {
+    session,
     user,
     profile,
     loading,
-    isPasswordResetFlow,
-    setIsPasswordResetFlow,
     signOut,
     refreshProfile: () => user && fetchProfile(user.id),
-  }
-
-  if (loading) {
-    return (
-      <div style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F7F5F0',
-        fontFamily: "'Instrument Serif', Georgia, serif",
-        flexDirection: 'column',
-        gap: '1rem',
-        zIndex: 9999
-      }}>
-        <div style={{ fontSize: '2.5rem', color: '#CC4B2C' }}>NN.</div>
-        <div style={{
-          fontSize: '0.65rem',
-          textTransform: 'uppercase',
-          letterSpacing: '0.2em',
-          color: '#707070'
-        }}>
-          Loading the Canvas...
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -113,4 +99,10 @@ export const AuthProvider = ({ children }) => {
   )
 }
 
-export const useAuth = () => useContext(AuthContext)
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}

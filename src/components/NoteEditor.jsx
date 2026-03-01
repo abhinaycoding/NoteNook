@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 
 const NoteEditor = ({ note, onUpdate }) => {
   const [title, setTitle] = useState(note.title || '')
@@ -9,7 +10,7 @@ const NoteEditor = ({ note, onUpdate }) => {
   const [saveStatus, setSaveStatus] = useState('Saved')
   const [wordCount, setWordCount] = useState(0)
 
-  const { session } = useAuth()
+  const { user } = useAuth()
   const saveTimeoutRef = useRef(null)
 
   // Sync state when switching notes

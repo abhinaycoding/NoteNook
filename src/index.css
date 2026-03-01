@@ -730,6 +730,11 @@ button:active:not(:disabled) {
   100% { background-position: 200% 0; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .skeleton-text { height: 1.2rem; margin-bottom: 0.5rem; width: 100%; border-radius: var(--radius-sm); border: none; }
 .skeleton-title { height: 2rem; margin-bottom: 1rem; width: 60%; border: none; }
 .skeleton-card { height: 120px; width: 100%; border-radius: var(--radius-md); }

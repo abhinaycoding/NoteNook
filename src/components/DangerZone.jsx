@@ -5,7 +5,7 @@ import { useTranslation } from '../contexts/LanguageContext'
 import '../pages/Dashboard.css' // uses ledger styles
 
 const DangerZone = () => {
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const { t } = useTranslation()
   const [urgentTasks, setUrgentTasks] = useState([])
 
@@ -86,9 +86,12 @@ const DangerZone = () => {
     const { error } = await supabase.from('tasks').update({ completed: true }).eq('id', id)
     
     if (error && taskBackup) {
-      // Revert
-      setUrgentTasks(prev => [...prev, taskBackup])
-      window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: false } }))
+      // Proper rollback: restore the task back into the list
+      setUrgentTasks(prev => {
+        const alreadyPresent = prev.some(t => t.id === taskBackup.id)
+        return alreadyPresent ? prev : [taskBackup, ...prev]
+      })
+      window.dispatchEvent(new CustomEvent('task-updated', { detail: { id: taskBackup.id, completed: false } }))
     }
   }
 

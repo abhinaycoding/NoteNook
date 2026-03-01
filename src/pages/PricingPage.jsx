@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import Navigation from '../components/Navigation';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext';
 import { useToast } from '../contexts/ToastContext';
 import { createRazorpayOrder, openRazorpayCheckout, verifyRazorpayPayment } from '../lib/razorpay';
 import './PricingPage.css';
 
 const PricingPage = ({ onNavigate }) => {
-  const { user } = useAuth();
+  const { user } = useAuth()
   const { isPro, refreshPlan, upgradePlan } = usePlan();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
@@ -25,7 +25,7 @@ const PricingPage = ({ onNavigate }) => {
       // 1. Create a Razorpay order via our Edge Function
       console.log('[Payment] Step 1: Creating order...');
       const order = await createRazorpayOrder({
-        userId: user.id,
+        userId: user,
         userEmail: user.email,
         userName: user.user_metadata?.full_name || '',
       });
@@ -47,7 +47,7 @@ const PricingPage = ({ onNavigate }) => {
       try {
         const verification = await verifyRazorpayPayment({
           ...paymentResult,
-          userId: user.id,
+          userId: user,
         });
         console.log('[Payment] Verification result:', verification);
       } catch (verifyErr) {

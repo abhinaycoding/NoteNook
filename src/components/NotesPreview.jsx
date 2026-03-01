@@ -17,7 +17,7 @@ const NotesPreview = ({ onNavigate }) => {
         const { data, error } = await supabase
           .from('notes')
           .select('id, title, folder, updated_at')
-          .eq('user_id', user.id)
+          .eq('user_id', user)
           .order('updated_at', { ascending: false })
           .limit(4)
         if (error) throw error

@@ -23,8 +23,8 @@ const ExamPlannerPage = ({ onNavigate }) => {
     const loadExamData = async () => {
       try {
         // Restore from localStorage first (fast, no network)
-        const savedDate = localStorage.getItem(`ff_exam_date_${user.id}`)
-        const savedName = localStorage.getItem(`ff_exam_name_${user.id}`)
+        const savedDate = localStorage.getItem(`ff_exam_date_${user}`)
+        const savedName = localStorage.getItem(`ff_exam_name_${user}`)
         if (savedDate) setExamDate(savedDate)
         if (savedName) setExamName(savedName)
 
@@ -32,7 +32,7 @@ const ExamPlannerPage = ({ onNavigate }) => {
         const { data } = await supabase
           .from('tasks')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', user)
           .eq('due_date', 'syllabus')
           .order('created_at', { ascending: true })
         if (data) setTopics(data)
@@ -41,7 +41,7 @@ const ExamPlannerPage = ({ onNavigate }) => {
         const { data: profile } = await supabase
           .from('profiles')
           .select('target_exam')
-          .eq('id', user.id)
+          .eq('id', user)
           .single()
         if (profile?.target_exam && !savedName) setExamName(profile.target_exam)
       } catch (err) {
@@ -86,7 +86,7 @@ const ExamPlannerPage = ({ onNavigate }) => {
     
     try {
       const { data, error } = await supabase.from('tasks').insert([{
-        user_id: user.id,
+        user_id: user,
         title: newTopic.trim(),
         due_date: 'syllabus',
         priority: newTopicSubject

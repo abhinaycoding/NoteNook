@@ -43,7 +43,7 @@ const TaskPlanner = () => {
     supabase
       .from('tasks')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', user)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (!error && data) {
@@ -83,7 +83,7 @@ const TaskPlanner = () => {
 
     supabase
       .from('tasks')
-      .insert([{ user_id: user.id, title, priority: newPriority, deadline_at: newDeadline || null }])
+      .insert([{ user_id: user, title, priority: newPriority, deadline_at: newDeadline || null }])
       .select()
       .single()
       .then(({ data, error }) => {

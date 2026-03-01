@@ -11,11 +11,6 @@ import { ZenProvider } from './contexts/ZenContext'
 import { TimerProvider } from './contexts/TimerContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 
-// RAW URL DIAGNOSTIC BEFORE SUPABASE INITIALIZATION
-const rawUrl = window.location.href
-if (rawUrl.includes('access_token') || rawUrl.includes('code') || rawUrl.includes('debug=true')) {
-  localStorage.setItem('ff_raw_url', rawUrl)
-}
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

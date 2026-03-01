@@ -309,7 +309,7 @@ const LandingPage = ({ onNavigate }) => {
             }}>
               <button 
                 className="btn-primary" 
-                onClick={() => onNavigate('auth')}
+                onClick={() => onNavigate('dashboard')}
               >
                 {t('landing.heroCta')}
               </button>
@@ -409,7 +409,7 @@ const LandingPage = ({ onNavigate }) => {
                       <li className="lp-feature-locked">{t('landing.freeFeature8')}</li>
                       <li className="lp-feature-locked">{t('landing.freeFeature9')}</li>
                     </ul>
-                    <button className="lp-price-btn lp-price-btn--free" onClick={() => onNavigate('auth')}>
+                    <button className="lp-price-btn lp-price-btn--free" onClick={() => onNavigate('dashboard')}>
                       {t('landing.freeCta')}
                     </button>
                   </div>
@@ -434,7 +434,7 @@ const LandingPage = ({ onNavigate }) => {
                       <li className="lp-feature-pro">{t('landing.proFeature6')}</li>
                       <li className="lp-feature-pro">{t('landing.proFeature7')}</li>
                     </ul>
-                    <button className="lp-price-btn lp-price-btn--pro" onClick={() => onNavigate('auth')}>
+                    <button className="lp-price-btn lp-price-btn--pro" onClick={() => onNavigate('dashboard')}>
                       {t('landing.proCta')}
                     </button>
                     <div className="lp-price-note">{t('landing.proPayNote')}</div>

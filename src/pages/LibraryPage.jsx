@@ -32,7 +32,7 @@ const LibraryPage = ({ onNavigate }) => {
     
     const fetchNotes = async () => {
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?user_id=eq.${user.id}&select=*&order=updated_at.desc`
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?user_id=eq.${user}&select=*&order=updated_at.desc`
         const res = await fetch(url, { headers: getHeaders() })
         
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
@@ -69,7 +69,7 @@ const LibraryPage = ({ onNavigate }) => {
     if (!session) return
     try {
       const newNote = {
-        user_id: user.id,
+        user_id: user,
         title: 'Untitled Document',
         content: '',
         folder: activeFolder === 'All' ? 'Uncategorized' : activeFolder

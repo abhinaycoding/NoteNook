@@ -19,14 +19,14 @@ const DailyScore = () => {
       const { data: sessions } = await supabase
         .from('sessions')
         .select('duration_seconds')
-        .eq('user_id', user.id)
+        .eq('user_id', user)
         .gte('created_at', today.toISOString())
 
       // Fetch today's completed tasks
       const { data: tasks } = await supabase
         .from('tasks')
         .select('id, completed')
-        .eq('user_id', user.id)
+        .eq('user_id', user)
 
       const totalFocusMin = (sessions || []).reduce((sum, s) => sum + s.duration_seconds, 0) / 60
       const completedTasks = (tasks || []).filter(t => t.completed).length

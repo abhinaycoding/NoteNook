@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import { usePlan } from '../contexts/PlanContext'
 import { useNotifications } from '../contexts/NotificationContext'
@@ -51,7 +52,7 @@ const GoalsPage = ({ onNavigate }) => {
           'Prefer': 'return=representation'
         }
         
-        const tasksRes = await fetch(`${url}/rest/v1/tasks?user_id=eq.${user.id}&select=*&order=created_at.asc`, { headers })
+        const tasksRes = await fetch(`${url}/rest/v1/tasks?user_id=eq.${user}&select=*&order=created_at.asc`, { headers })
         if (!tasksRes.ok) throw new Error(`Tasks HTTP error! status: ${tasksRes.status}`)
         const allTasks = await tasksRes.json()
         
@@ -60,7 +61,7 @@ const GoalsPage = ({ onNavigate }) => {
           setGoals(goalsData)
         }
         
-        const sessionsRes = await fetch(`${url}/rest/v1/sessions?user_id=eq.${user.id}&select=duration_seconds`, { headers })
+        const sessionsRes = await fetch(`${url}/rest/v1/sessions?user_id=eq.${user}&select=duration_seconds`, { headers })
         if (!sessionsRes.ok) throw new Error(`Sessions HTTP error! status: ${sessionsRes.status}`)
         const sessionsData = await sessionsRes.json()
 
@@ -109,7 +110,7 @@ const GoalsPage = ({ onNavigate }) => {
     try {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/tasks`
       const payload = {
-        user_id: user.id,
+        user_id: user,
         title: newGoal.trim(),
         due_date: 'goal',
         priority: newTarget || '0',

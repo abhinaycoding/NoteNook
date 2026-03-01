@@ -1,15 +1,18 @@
-import React, { useState } from 'react'
-import { supabase } from '../lib/supabase'
 import Navigation from '../components/Navigation'
 import { ARCHETYPES } from '../constants/archetypes'
 import { useTranslation } from '../contexts/LanguageContext'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+import { useState } from 'react' // Added missing import for useState
 
-const ProfileSetup = ({ onNavigate, user }) => {
+const ProfileSetup = ({ onNavigate }) => {
   const { t } = useTranslation()
-  const [studentType, setStudentType] = useState('High School')
-  const [targetExam, setTargetExam] = useState('')
-  const [goals, setGoals] = useState('')
-  const [avatarId, setAvatarId] = useState('owl')
+  const { user, profile, refreshProfile } = useAuth()
+  
+  const [studentType, setStudentType] = useState(profile?.student_type || 'High School')
+  const [targetExam, setTargetExam] = useState(profile?.target_exam || '')
+  const [goals, setGoals] = useState(profile?.goals || '')
+  const [avatarId, setAvatarId] = useState(profile?.avatar_id || 'owl')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
@@ -19,25 +22,22 @@ const ProfileSetup = ({ onNavigate, user }) => {
     setErrorMsg('')
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          student_type: studentType,
-          target_exam: targetExam,
-          goals: goals,
-          avatar_id: avatarId,
-          updated_at: new Date()
-        }, { onConflict: 'id' })
-
+      const { error } = await supabase.from('profiles').upsert({
+        id: user.id,
+        student_type: studentType,
+        target_exam: targetExam,
+        goals: goals,
+        avatar_id: avatarId,
+        updated_at: new Date().toISOString()
+      })
       if (error) throw error
+
+      await refreshProfile()
       
-      // Update successful, force hard navigation or simple component swap
       onNavigate('dashboard')
-      // A full page reload might be better here to re-trigger the AuthContext fetch cleanly
-      window.location.reload()
     } catch (error) {
       setErrorMsg(error.message)
+    } finally {
       setLoading(false)
     }
   }
