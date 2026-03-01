@@ -22,21 +22,39 @@ const ProfileSetup = ({ onNavigate }) => {
     setErrorMsg('')
 
     try {
-      const { error } = await supabase.from('profiles').upsert({
-        id: user.id,
-        student_type: studentType,
-        target_exam: targetExam,
-        goals: goals,
-        avatar_id: avatarId,
-        updated_at: new Date().toISOString()
-      })
-      if (error) throw error
+      // Add a safety timeout to the profile save process
+      const savePromise = async () => {
+        console.log('Attempting to save profile for user:', user?.id)
+        
+        const { error } = await supabase.from('profiles').upsert({
+          id: user.id,
+          student_type: studentType,
+          target_exam: targetExam,
+          goals: goals,
+          avatar_id: avatarId,
+          updated_at: new Date().toISOString()
+        })
+        
+        if (error) {
+          console.error('Supabase Upsert Error:', error)
+          throw error
+        }
+        
+        console.log('Profile saved successfully to DB. Refreshing local state...')
+        await refreshProfile()
+        console.log('Local state refreshed. Navigating to dashboard...')
+        onNavigate('dashboard')
+      }
 
-      await refreshProfile()
-      
-      onNavigate('dashboard')
+      // Race the save process against a 10-second timeout
+      await Promise.race([
+        savePromise(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Profile save timed out. Please try again.')), 10000))
+      ])
+
     } catch (error) {
-      setErrorMsg(error.message)
+      console.error('Profile save caught error:', error)
+      setErrorMsg(error.message || 'An error occurred while saving your profile.')
     } finally {
       setLoading(false)
     }
