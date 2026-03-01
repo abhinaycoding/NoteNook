@@ -80,8 +80,8 @@ function App() {
   // Global loading state while AuthContext resolves session
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg, #FAF8F4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid var(--text-primary, #1a1a1a)', borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: 'var(--bg-color, #0a0a0a)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid var(--border, rgba(255,255,255,0.1))', borderTopColor: 'var(--accent, #ea580c)', animation: 'spin 0.7s linear infinite' }} />
       </div>
     )
   }
