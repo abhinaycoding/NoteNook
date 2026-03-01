@@ -43,64 +43,63 @@ const ProfileSetup = ({ onNavigate }) => {
   }
 
   return (
-    <div className="landing-page min-h-screen flex flex-col">
+    <div className="landing-page" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navigation onNavigate={onNavigate} isAuthPage={true} />
       
-      <main className="flex-grow flex items-center justify-center py-20">
-        <div className="container max-w-lg mt-12 mb-20">
+      <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', marginTop: '4rem', paddingBottom: '4rem' }}>
+        <div style={{ width: '100%', maxWidth: '540px', border: '1px solid var(--ink)', padding: '3rem', background: 'var(--bg-card)' }}>
           
-          <div className="border border-ink p-16 bg-cream relative">
-            <h2 className="text-4xl font-serif mb-4 text-center">
-              {t('profile.title')}
-            </h2>
-            <p className="text-xs text-muted text-center uppercase tracking-widest mb-12">
-              {t('profile.subtitle')}
-            </p>
+          <h2 className="text-4xl font-serif text-center" style={{ marginBottom: '0.5rem' }}>
+            {t('profile.title') || 'The Ledger Awaits.'}
+          </h2>
+          <p className="text-xs text-center text-muted uppercase tracking-widest" style={{ marginBottom: '2.5rem' }}>
+            {t('profile.subtitle') || 'Configure your academic profile'}
+          </p>
 
-            {errorMsg && (
-              <div className="mb-6 p-4 border border-ink text-primary text-sm font-medium">
-                {errorMsg}
-              </div>
-            )}
+          {errorMsg && (
+            <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid var(--danger)', color: 'var(--danger)', fontSize: '0.875rem', fontWeight: 500 }}>
+              {errorMsg}
+            </div>
+          )}
 
-            <form onSubmit={handleSaveProfile} className="flex flex-col gap-8">
-              
-              <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-widest font-bold">{t('profile.currentStatus')}</label>
-                <select 
-                  value={studentType} 
-                  onChange={(e) => setStudentType(e.target.value)}
-                  className="w-full bg-transparent border-b border-ink font-serif text-xl outline-none py-3 focus:border-primary transition-colors cursor-pointer appearance-none"
-                >
-                  <option value="High School">{t('profile.highSchool')}</option>
-                  <option value="University">{t('profile.university')}</option>
-                  <option value="Competitive Exam">{t('profile.competitiveExam')}</option>
-                  <option value="Professional Development">{t('profile.professionalDev')}</option>
-                </select>
-              </div>
+          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label className="text-xs uppercase tracking-widest font-bold">Current Status</label>
+              <select 
+                value={studentType} 
+                onChange={(e) => setStudentType(e.target.value)}
+                style={{ width: '100%', background: 'transparent', borderBottom: '1px solid var(--ink)', padding: '0.5rem 0', outline: 'none', fontFamily: 'var(--font-serif)', fontSize: '1.25rem', color: 'var(--text-primary)', borderTop: 'none', borderLeft: 'none', borderRight: 'none', appearance: 'none', borderRadius: 0, cursor: 'pointer' }}
+              >
+                <option value="High School" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>High School</option>
+                <option value="University" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>University</option>
+                <option value="Competitive Exam" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Competitive Exam</option>
+                <option value="Professional Development" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Professional Development</option>
+              </select>
+            </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-widest font-bold">{t('profile.targetExam')}</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={targetExam}
-                  onChange={(e) => setTargetExam(e.target.value)}
-                  className="w-full bg-transparent border-b border-ink font-serif text-xl outline-none py-3 focus:border-primary transition-colors"
-                  placeholder={t('profile.targetPlaceholder')}
-                />
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label className="text-xs uppercase tracking-widest font-bold">Target Exam / Core Subject</label>
+              <input 
+                type="text" 
+                required 
+                value={targetExam}
+                onChange={(e) => setTargetExam(e.target.value)}
+                style={{ width: '100%', background: 'transparent', borderBottom: '1px solid var(--ink)', padding: '0.5rem 0', outline: 'none', fontFamily: 'var(--font-serif)', fontSize: '1.25rem', color: 'var(--text-primary)', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderRadius: 0 }}
+                placeholder="e.g. JEE, NEET, Bar Exam, Calculus"
+              />
+            </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-widest font-bold">{t('profile.primaryGoal')}</label>
-                <textarea 
-                  required 
-                  value={goals}
-                  onChange={(e) => setGoals(e.target.value)}
-                  className="w-full bg-transparent border-b border-ink font-serif text-xl outline-none py-3 focus:border-primary transition-colors resize-none h-24"
-                  placeholder={t('profile.goalPlaceholder')}
-                />
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label className="text-xs uppercase tracking-widest font-bold">Primary Goal</label>
+              <textarea 
+                required 
+                value={goals}
+                onChange={(e) => setGoals(e.target.value)}
+                style={{ width: '100%', background: 'transparent', borderBottom: '1px solid var(--ink)', padding: '0.5rem 0', outline: 'none', fontFamily: 'var(--font-serif)', fontSize: '1.25rem', color: 'var(--text-primary)', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderRadius: 0, resize: 'none', minHeight: '80px' }}
+                placeholder="e.g. Score 99 percentile, maintain 3.8 GPA"
+              />
+            </div>
 
               <div className="flex flex-col gap-4">
                 <label className="text-xs uppercase tracking-widest font-bold">{t('profile.choosePersona')}</label>
@@ -191,23 +190,21 @@ const ProfileSetup = ({ onNavigate }) => {
                   })}
                 </div>
               </div>
-              
               <button 
                 type="submit" 
                 disabled={loading}
-                className="btn-primary w-full mt-4 justify-center py-4 text-sm uppercase tracking-widest"
+                style={{ marginTop: '1rem', padding: '1.25rem 1.5rem', background: 'var(--ink)', color: 'var(--bg-card)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.875rem', opacity: loading ? 0.5 : 1, cursor: loading ? 'not-allowed' : 'pointer', border: 'none', transition: 'background 0.2s ease', width: '100%' }}
               >
-                {loading ? t('profile.initializing') : t('profile.completeRegistration')}
+                {loading ? t('profile.initializing') || 'Initializing...' : t('profile.completeRegistration') || 'Complete Registration'}
               </button>
             </form>
 
-          </div>
         </div>
       </main>
 
-      <footer className="container py-8 flex justify-between uppercase tracking-widest text-xs font-bold border-t border-ink mt-auto">
+      <footer style={{ padding: '2rem 5%', display: 'flex', justifyContent: 'space-between', textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.75rem', fontWeight: 700, borderTop: '1px solid var(--border)', marginTop: 'auto' }}>
         <div>NoteNook Publishing © 2026</div>
-        <div>{t('auth.allRights')}</div>
+        <div>All Rights Reserved</div>
       </footer>
     </div>
   )

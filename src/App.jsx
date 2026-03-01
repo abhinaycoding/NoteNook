@@ -65,14 +65,16 @@ function App() {
   // `user`. At that point currentPage is still 'landing' or 'auth', so we
   // need to push the user forward to the right destination.
   useEffect(() => {
-    if (!user) return
+    // Wait until auth is fully resolved (including fetching the profile)
+    if (authLoading || !user) return
+    
     if (currentPage === 'landing' || currentPage === 'auth') {
       // New Google users have no profile yet → send to setup
       // Returning users have a profile → send to dashboard
       navigateTo(profile ? 'dashboard' : 'setup')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, profile])
+  }, [user, profile, authLoading])
 
 
   // Global loading state while AuthContext resolves session
