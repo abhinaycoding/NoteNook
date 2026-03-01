@@ -19,73 +19,40 @@ const ProfileSetup = ({ onNavigate }) => {
   const handleSaveProfile = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setErrorMsg('DIAGNOSTIC MODE: Starting save...')
+    setErrorMsg('')
 
     try {
       const payload = {
-        id: user?.id,
         student_type: studentType,
         target_exam: targetExam,
         goals: goals,
         avatar_id: avatarId,
         updated_at: new Date().toISOString()
       }
-      
-      console.log('--- DIAGNOSTIC SAVE START ---')
-      console.log('Payload:', payload)
 
       if (!user?.id) throw new Error('No user ID found! Are you logged out?')
 
-      // Attempt to save profile directly without racing a timeout first so we can see the exact error
-      setErrorMsg('DIAGNOSTIC MODE: Sending to Supabase...')
-      const response = await supabase.from('profiles').upsert(payload)
-      
-      console.log('Supabase Raw Response:', response)
+      // Because the auth trigger already created the profile row with the user ID,
+      // we must UPDATE it, not UPSERT it. Upserting triggers RLS insert blocks.
+      const response = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', user.id)
 
       if (response.error) {
-        throw new Error(`DB Error: ${response.error.message} (Code: ${response.error.code})`)
+        throw new Error(`Failed to save: ${response.error.message}`)
       }
       
-      setErrorMsg('DIAGNOSTIC MODE: Refreshing local profile...')
       await refreshProfile()
-      
-      setErrorMsg('DIAGNOSTIC MODE: Success! Redirecting...')
       onNavigate('dashboard')
 
     } catch (error) {
-      console.error('DIAGNOSTIC ERROR CAUGHT:', error)
-      setErrorMsg(`FAILED: ${error.message}`)
+      console.error('Profile save error:', error)
+      setErrorMsg(error.message || 'An error occurred while saving your profile.')
     } finally {
-      setTimeout(() => setLoading(false), 500) // Keep loading spin slightly longer so we can read final message
+      setLoading(false)
     }
   }
-
-  const runRawTest = async () => {
-    try {
-      setErrorMsg('Running raw fetch test...');
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles`, {
-        method: 'POST',
-        headers: {
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation,resolution=merge-duplicates'
-        },
-        body: JSON.stringify({
-          id: user?.id,
-          student_type: studentType,
-          target_exam: targetExam,
-          goals: goals,
-          avatar_id: avatarId,
-          updated_at: new Date().toISOString()
-        })
-      });
-      const text = await res.text();
-      setErrorMsg(`RAW RESULT (${res.status}): ${text}`);
-    } catch (e) {
-      setErrorMsg(`RAW ERROR: ${e.message}`);
-    }
-  };
 
   return (
     <div className="landing-page" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -106,8 +73,6 @@ const ProfileSetup = ({ onNavigate }) => {
               {errorMsg}
             </div>
           )}
-
-          <button type="button" onClick={runRawTest} style={{ marginBottom: '2rem', padding: '0.5rem', background: 'var(--danger)', color: '#fff' }}>CLICK ME FIRST: Raw Database Test</button>
 
           <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             
