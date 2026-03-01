@@ -49,15 +49,19 @@ function App() {
 
   // Navigation effect — only runs after auth is fully initialized
   useEffect(() => {
+    console.log('[App Nav] State Check:', { user: !!user, hasProfile: !!profile, authLoading, currentPage })
+
     if (authLoading) return
 
     if (isPasswordResetFlow) {
+      console.log('[App Nav] Redirecting to auth (Password Reset)')
       setCurrentPage('auth')
       return
     }
 
     // Kick unauthenticated users off protected pages
     if (!user && PROTECTED.includes(currentPage)) {
+      console.log('[App Nav] Unauthorized access - redirecting to landing')
       setCurrentPage('landing')
       return
     }
