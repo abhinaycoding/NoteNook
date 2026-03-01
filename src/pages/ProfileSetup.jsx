@@ -19,46 +19,73 @@ const ProfileSetup = ({ onNavigate }) => {
   const handleSaveProfile = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setErrorMsg('')
+    setErrorMsg('DIAGNOSTIC MODE: Starting save...')
 
     try {
-      // Add a safety timeout to the profile save process
-      const savePromise = async () => {
-        console.log('Attempting to save profile for user:', user?.id)
-        
-        const { error } = await supabase.from('profiles').upsert({
-          id: user.id,
+      const payload = {
+        id: user?.id,
+        student_type: studentType,
+        target_exam: targetExam,
+        goals: goals,
+        avatar_id: avatarId,
+        updated_at: new Date().toISOString()
+      }
+      
+      console.log('--- DIAGNOSTIC SAVE START ---')
+      console.log('Payload:', payload)
+
+      if (!user?.id) throw new Error('No user ID found! Are you logged out?')
+
+      // Attempt to save profile directly without racing a timeout first so we can see the exact error
+      setErrorMsg('DIAGNOSTIC MODE: Sending to Supabase...')
+      const response = await supabase.from('profiles').upsert(payload)
+      
+      console.log('Supabase Raw Response:', response)
+
+      if (response.error) {
+        throw new Error(`DB Error: ${response.error.message} (Code: ${response.error.code})`)
+      }
+      
+      setErrorMsg('DIAGNOSTIC MODE: Refreshing local profile...')
+      await refreshProfile()
+      
+      setErrorMsg('DIAGNOSTIC MODE: Success! Redirecting...')
+      onNavigate('dashboard')
+
+    } catch (error) {
+      console.error('DIAGNOSTIC ERROR CAUGHT:', error)
+      setErrorMsg(`FAILED: ${error.message}`)
+    } finally {
+      setTimeout(() => setLoading(false), 500) // Keep loading spin slightly longer so we can read final message
+    }
+  }
+
+  const runRawTest = async () => {
+    try {
+      setErrorMsg('Running raw fetch test...');
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles`, {
+        method: 'POST',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation,resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          id: user?.id,
           student_type: studentType,
           target_exam: targetExam,
           goals: goals,
           avatar_id: avatarId,
           updated_at: new Date().toISOString()
         })
-        
-        if (error) {
-          console.error('Supabase Upsert Error:', error)
-          throw error
-        }
-        
-        console.log('Profile saved successfully to DB. Refreshing local state...')
-        await refreshProfile()
-        console.log('Local state refreshed. Navigating to dashboard...')
-        onNavigate('dashboard')
-      }
-
-      // Race the save process against a 30-second timeout
-      await Promise.race([
-        savePromise(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Database is taking a while to respond (if this is a free project, it may be waking up). Please try again in a moment.')), 30000))
-      ])
-
-    } catch (error) {
-      console.error('Profile save caught error:', error)
-      setErrorMsg(error.message || 'An error occurred while saving your profile.')
-    } finally {
-      setLoading(false)
+      });
+      const text = await res.text();
+      setErrorMsg(`RAW RESULT (${res.status}): ${text}`);
+    } catch (e) {
+      setErrorMsg(`RAW ERROR: ${e.message}`);
     }
-  }
+  };
 
   return (
     <div className="landing-page" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -75,10 +102,12 @@ const ProfileSetup = ({ onNavigate }) => {
           </p>
 
           {errorMsg && (
-            <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid var(--danger)', color: 'var(--danger)', fontSize: '0.875rem', fontWeight: 500 }}>
+            <div style={{ marginBottom: '1.5rem', padding: '1rem', border: '1px solid var(--danger)', color: 'var(--danger)', fontSize: '0.875rem', fontWeight: 500, wordBreak: 'break-all' }}>
               {errorMsg}
             </div>
           )}
+
+          <button type="button" onClick={runRawTest} style={{ marginBottom: '2rem', padding: '0.5rem', background: 'var(--danger)', color: '#fff' }}>CLICK ME FIRST: Raw Database Test</button>
 
           <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             

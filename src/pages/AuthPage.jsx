@@ -1,11 +1,9 @@
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import Navigation from '../components/Navigation'
-import { useTranslation } from '../contexts/LanguageContext'
 import './AuthPage.css'
 
 const AuthPage = ({ onNavigate }) => {
-  const { t } = useTranslation()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -44,14 +42,17 @@ const AuthPage = ({ onNavigate }) => {
     setSuccessMsg('')
 
     try {
+      const normalizedEmail = email.trim().toLowerCase()
+      const normalizedName = fullName.trim()
+
       if (isSignUp) {
-        if (!fullName.trim()) throw new Error('Full name is required.')
+        if (!normalizedName) throw new Error('Full name is required.')
 
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: {
-            data: { full_name: fullName.trim() }
+            data: { full_name: normalizedName }
           }
         })
         if (error) throw error
@@ -60,12 +61,19 @@ const AuthPage = ({ onNavigate }) => {
         if (data?.user && !data?.session) {
           setSuccessMsg('Check your email to confirm your account, then log in.')
         } else {
-          onNavigate('setup')
+          setSuccessMsg('Account created. Redirecting...')
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        })
         if (error) throw error
-        onNavigate('dashboard')
+
+        if (!data?.session) {
+          throw new Error('Login did not create a session. Please try again.')
+        }
+        setSuccessMsg('Logged in. Redirecting...')
       }
     } catch (err) {
       setErrorMsg(err.message)
