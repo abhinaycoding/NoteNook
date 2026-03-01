@@ -59,10 +59,18 @@ export const AuthProvider = ({ children }) => {
           await fetchProfile(currentSession.user.id)
         } else {
           setProfile(null)
-          resolveLoading()
+          resolveLoading() // Important: resolve immediately if no user
         }
       }
     )
+
+    // Also check initial session immediately to avoid waiting for the event
+    // if the user is completely signed out and has no cached session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      if (!currentSession) {
+        resolveLoading()
+      }
+    })
 
     return () => {
       clearTimeout(safetyTimeout)
