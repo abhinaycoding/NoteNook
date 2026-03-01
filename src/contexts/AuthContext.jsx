@@ -1,89 +1,145 @@
-import React, { createContext, useState, useEffect, useRef, useContext } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useState, useEffect, useRef, useContext, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-export const AuthContext = createContext({})
+export const AuthContext = createContext(undefined)
 
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [profileReady, setProfileReady] = useState(false)
   const [loading, setLoading] = useState(true)
-  // Track whether we've already resolved loading so we never set it true again
-  const resolved = useRef(false)
 
-  const resolveLoading = () => {
+  const resolved = useRef(false)
+  const safetyTimeoutRef = useRef(null)
+  const authFlowIdRef = useRef(0)
+
+  const resolveLoading = useCallback(() => {
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current)
+      safetyTimeoutRef.current = null
+    }
+
     if (!resolved.current) {
       resolved.current = true
       setLoading(false)
     }
-  }
+  }, [])
 
-  const fetchProfile = async (userId) => {
+  const clearAuthState = useCallback(() => {
+    setSession(null)
+    setUser(null)
+    setProfile(null)
+    setProfileReady(true)
+    resolveLoading()
+  }, [resolveLoading])
+
+  const hydrateProfile = useCallback(async (userId, flowId) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
-      if (!error && data) {
-        setProfile(data)
-      } else {
-        // PGRST116 = no row found (user needs ProfileSetup)
+      if (flowId !== authFlowIdRef.current) return
+
+      if (error) {
+        console.error('Fetch profile error:', error)
         setProfile(null)
+      } else {
+        setProfile(data ?? null)
       }
     } catch (err) {
-      console.error('Fetch profile error:', err)
+      if (flowId !== authFlowIdRef.current) return
+      console.error('Fetch profile exception:', err)
+      setProfile(null)
     } finally {
-      resolveLoading()
-    }
-  }
-
-  useEffect(() => {
-    // Safety timeout: never stay on the loading screen for more than 5 seconds
-    // Handles network issues, Supabase downtime, etc.
-    const safetyTimeout = setTimeout(() => {
-      console.warn('AuthContext: safety timeout reached — forcing loading=false')
-      resolveLoading()
-    }, 5000)
-
-    // onAuthStateChange is the single source of truth.
-    // It fires INITIAL_SESSION immediately (synchronously before any awaits)
-    // so we don't need a separate getSession() call.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, currentSession) => {
-        setSession(currentSession)
-        setUser(currentSession?.user ?? null)
-
-        if (currentSession?.user) {
-          await fetchProfile(currentSession.user.id)
-        } else {
-          setProfile(null)
-          resolveLoading() // Important: resolve immediately if no user
-        }
-      }
-    )
-
-    // Also check initial session immediately to avoid waiting for the event
-    // if the user is completely signed out and has no cached session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      if (!currentSession) {
+      if (flowId === authFlowIdRef.current) {
+        setProfileReady(true)
         resolveLoading()
       }
+    }
+  }, [resolveLoading])
+
+  const applySession = useCallback(async (currentSession) => {
+    const flowId = ++authFlowIdRef.current
+
+    if (!currentSession?.access_token) {
+      clearAuthState()
+      return
+    }
+
+    // Validate token against Auth API before trusting user state.
+    const { data: userData, error: userErr } = await supabase.auth.getUser(currentSession.access_token)
+
+    if (flowId !== authFlowIdRef.current) return
+
+    if (userErr || !userData?.user) {
+      console.warn('Invalid or stale session detected. Clearing local auth state.')
+      try {
+        await supabase.auth.signOut({ scope: 'local' })
+      } catch {
+        // Ignore sign-out failures while recovering from stale tokens.
+      }
+      if (flowId === authFlowIdRef.current) {
+        clearAuthState()
+      }
+      return
+    }
+
+    setSession(currentSession)
+    setUser(userData.user)
+    setProfile(null)
+    setProfileReady(false)
+
+    await hydrateProfile(userData.user.id, flowId)
+  }, [clearAuthState, hydrateProfile])
+
+  useEffect(() => {
+    let isMounted = true
+
+    safetyTimeoutRef.current = setTimeout(() => {
+      if (resolved.current) return
+      console.error('AuthContext: Supabase auth client is deadlocked! Clearing corrupted browser session and restarting...')
+      try {
+        localStorage.clear()
+        sessionStorage.clear()
+        window.location.reload()
+      } catch (e) {
+        resolveLoading()
+      }
+    }, 8000)
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (!isMounted) return
+      await applySession(currentSession)
+    })
+
+    // Fallback in case INITIAL_SESSION is delayed.
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      if (!isMounted) return
+      await applySession(currentSession)
+    }).catch((err) => {
+      if (!isMounted) return
+      console.error('Initial session error:', err)
+      clearAuthState()
     })
 
     return () => {
-      clearTimeout(safetyTimeout)
+      isMounted = false
+      authFlowIdRef.current += 1
+      if (safetyTimeoutRef.current) {
+        clearTimeout(safetyTimeoutRef.current)
+        safetyTimeoutRef.current = null
+      }
       subscription.unsubscribe()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [applySession, clearAuthState, resolveLoading])
 
   const signOut = async () => {
-    // Reset local state immediately so UI reacts instantly
-    setUser(null)
-    setSession(null)
-    setProfile(null)
+    clearAuthState()
     try {
       await supabase.auth.signOut()
     } catch (err) {
@@ -91,13 +147,26 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const refreshProfile = async () => {
+    if (!user?.id) {
+      setProfile(null)
+      setProfileReady(true)
+      return
+    }
+
+    const flowId = ++authFlowIdRef.current
+    setProfileReady(false)
+    await hydrateProfile(user.id, flowId)
+  }
+
   const value = {
     session,
     user,
     profile,
+    profileReady,
     loading,
     signOut,
-    refreshProfile: () => user && fetchProfile(user.id),
+    refreshProfile,
   }
 
   return (
