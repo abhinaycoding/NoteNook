@@ -66,11 +66,23 @@ export function PlanProvider({ children }) {
     } catch { /* best-effort */ }
   }
 
+  // Force re-fetch plan status from DB (called after payment verification)
+  const refreshPlan = async () => {
+    if (!user) return
+    const { data } = await supabase
+      .from('profiles')
+      .select('is_pro')
+      .eq('id', user.id)
+      .single()
+    setIsPro(!!data?.is_pro)
+  }
+
   return (
     <PlanContext.Provider value={{ 
         isPro, 
         upgradePlan: upgradePlanFallback, 
-        downgradePlan: downgradePlanFallback 
+        downgradePlan: downgradePlanFallback,
+        refreshPlan,
     }}>
       {children}
     </PlanContext.Provider>

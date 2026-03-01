@@ -1,0 +1,90 @@
+/* ── XP Bar ── */
+
+.xp-bar-wrap {
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.xp-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.xp-level-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  cursor: default;
+}
+
+.xp-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border, #e5e5e5);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.xp-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--primary, #CC4B2C), #ff8800, #ffcc02);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.xp-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: xpShimmer 2s ease-in-out infinite;
+}
+
+@keyframes xpShimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.xp-label {
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Level Up celebration */
+.xp-levelup {
+  position: absolute;
+  top: -2.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #ff4500, #ffaa33);
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  white-space: nowrap;
+  animation: levelUpPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 4px 12px rgba(255, 100, 0, 0.3);
+  z-index: 100;
+}
+
+@keyframes levelUpPop {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.8); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}

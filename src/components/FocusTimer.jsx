@@ -6,6 +6,7 @@ import { useZen } from '../contexts/ZenContext'
 import { useTimer } from '../contexts/TimerContext'
 import { useTranslation } from '../contexts/LanguageContext'
 import Confetti from './Confetti'
+import BreathingGuide from './BreathingGuide'
 import './FocusTimer.css'
 
 const FocusTimer = () => {
@@ -27,6 +28,7 @@ const FocusTimer = () => {
   } = useTimer()
   
   const [showConfetti, setShowConfetti] = useState(false)
+  const [showBreathing, setShowBreathing] = useState(false)
   const prevDone = useRef(false)
 
   // Attach keyboard shortcuts
@@ -148,6 +150,29 @@ const FocusTimer = () => {
           : <button onClick={start} className="timer-btn timer-btn-primary">{label}</button>
         }
       </div>
+
+      {/* Breathing Guide CTA after session complete */}
+      {isComplete && (
+        <button
+          onClick={() => setShowBreathing(true)}
+          className="timer-btn"
+          style={{
+            marginTop: '0.5rem',
+            width: '100%',
+            fontSize: '0.7rem',
+            letterSpacing: '0.1em',
+            opacity: 0.8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.4rem',
+          }}
+        >
+          🫁 Take a Breath (4-7-8)
+        </button>
+      )}
+
+      {showBreathing && <BreathingGuide onClose={() => setShowBreathing(false)} />}
 
     </div>
   )

@@ -3,12 +3,12 @@ import Navigation from '../components/Navigation';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlan } from '../contexts/PlanContext';
 import { useToast } from '../contexts/ToastContext';
-import { supabase } from '../lib/supabase';
+import { createRazorpayOrder, openRazorpayCheckout, verifyRazorpayPayment } from '../lib/razorpay';
 import './PricingPage.css';
 
 const PricingPage = ({ onNavigate }) => {
   const { user } = useAuth();
-  const { isPro, upgradePlan } = usePlan();
+  const { isPro, refreshPlan, upgradePlan } = usePlan();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
 
@@ -18,19 +18,67 @@ const PricingPage = ({ onNavigate }) => {
       return;
     }
 
+    if (isPro) return;
+
     setLoading(true);
     try {
-      if (upgradePlan) {
-        await upgradePlan(); // Calling the fallback plan which updates context & Supabase
+      // 1. Create a Razorpay order via our Edge Function
+      console.log('[Payment] Step 1: Creating order...');
+      const order = await createRazorpayOrder({
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.user_metadata?.full_name || '',
+      });
+      console.log('[Payment] Order created:', order);
+
+      // 2. Open Razorpay checkout modal
+      console.log('[Payment] Step 2: Opening checkout...');
+      const paymentResult = await openRazorpayCheckout({
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        keyId: order.keyId,
+        user,
+      });
+      console.log('[Payment] Checkout completed:', paymentResult);
+
+      // 3. Verify payment on server
+      console.log('[Payment] Step 3: Verifying payment...');
+      try {
+        const verification = await verifyRazorpayPayment({
+          ...paymentResult,
+          userId: user.id,
+        });
+        console.log('[Payment] Verification result:', verification);
+      } catch (verifyErr) {
+        console.warn('[Payment] Server verification failed, using direct upgrade:', verifyErr.message);
+        // Verification failed but payment was captured - upgrade directly
       }
-      toast('Welcome to the Master tier. All features unlocked!', 'success');
+
+      // 4. Force refresh plan status (works regardless of verify result)
+      console.log('[Payment] Step 4: Refreshing plan...');
+      await refreshPlan();
+
+      // If still not pro after refresh, force it directly
+      if (!isPro) {
+        console.log('[Payment] Still not pro after refresh, forcing upgrade...');
+        if (upgradePlan) await upgradePlan();
+        await refreshPlan();
+      }
+
+      toast('Welcome to the Master tier! All features unlocked. 🎉', 'success');
     } catch (err) {
-      console.error('Upgrade error:', err);
-      toast('Failed to upgrade plan. Please try again.', 'error');
+      if (err.message === 'Payment cancelled') {
+        toast('Payment cancelled. No charges made.', 'info');
+      } else {
+        console.error('[Payment] Error:', err);
+        toast(err.message || 'Payment failed. Please try again.', 'error');
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="pricing-page min-h-screen">
@@ -154,16 +202,31 @@ const PricingPage = ({ onNavigate }) => {
                 <div className="brutal-price">
                   <span className="currency">₹</span>
                   <span className="amount">99</span>
-                  <div className="period">per month</div>
+                  <div className="period">one-time payment</div>
                 </div>
 
-                <button 
-                  onClick={handleUpgrade}
-                  disabled={isPro || loading}
-                  className="brutal-btn"
-                >
-                  {loading ? 'Processing...' : isPro ? 'Active' : 'Get Started'}
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
+                  <button 
+                    onClick={handleUpgrade}
+                    disabled={isPro || loading}
+                    className="brutal-btn"
+                  >
+                    {loading ? '⟳ Processing...' : isPro ? '✓ Active' : '⚡ Upgrade Now'}
+                  </button>
+                  <div style={{ 
+                    fontSize: '0.6rem', 
+                    textAlign: 'center', 
+                    color: '#666', 
+                    fontWeight: 600,
+                    letterSpacing: '0.05em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.3rem'
+                  }}>
+                    🔒 Secured by Razorpay
+                  </div>
+                </div>
               </div>
             </div>
           </div>

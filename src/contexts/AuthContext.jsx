@@ -7,130 +7,76 @@ const AuthContext = createContext({})
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
-  const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isPasswordResetFlow, setIsPasswordResetFlow] = useState(false)
 
-  const fetchProfile = async (userId, token) => {
+  const fetchProfile = async (userId) => {
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=*`
-      const res = await fetch(url, {
-        headers: {
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      const data = await res.json()
-      if (res.ok && data && data.length > 0) {
-        setProfile(data[0])
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      if (!error && data) {
+        setProfile(data)
       }
-    } catch (error) {
-      console.error('Error fetching profile:', error)
-    }
-  }
-
-  const setLocalSession = async (newSession, newUser) => {
-    if (newSession && newUser) {
-      localStorage.setItem('ff_session', JSON.stringify({ session: newSession, user: newUser }))
-      setSession(newSession)
-      setUser(newUser)
-      await supabase.auth.setSession({
-        access_token: newSession.access_token,
-        refresh_token: newSession.refresh_token
-      })
-      await fetchProfile(newUser.id, newSession.access_token)
-    } else {
-      localStorage.removeItem('ff_session')
-      setSession(null)
-      setUser(null)
-      setProfile(null)
-      setIsPasswordResetFlow(false)
-      await supabase.auth.signOut()
+    } catch (err) {
+      console.error('[AuthContext] fetchProfile error:', err)
     }
   }
 
   useEffect(() => {
-    const initAuth = async () => {
-      const stored = localStorage.getItem('ff_session')
-      if (stored) {
-        try {
-          const { session: storedSession, user: storedUser } = JSON.parse(stored)
-          
-          // Verify token hasn't completely expired (basic check)
-          if (storedSession?.expires_at) {
-            const expiresAt = new Date(storedSession.expires_at * 1000)
-            if (expiresAt < new Date()) {
-              console.log('Local session expired')
-              localStorage.removeItem('ff_session')
-              setLoading(false)
-              return
-            }
-          }
-
-          setSession(storedSession)
-          setUser(storedUser)
-
-          await supabase.auth.setSession({
-            access_token: storedSession.access_token,
-            refresh_token: storedSession.refresh_token
-          })
-
-          if (storedUser?.id) {
-            await fetchProfile(storedUser.id, storedSession.access_token)
-          }
-        } catch (e) {
-          console.error('Failed to parse local session', e)
-        }
-      }
-      setLoading(false)
-    }
-
-    initAuth()
-
-    // Listen for auth state changes — handles email verification redirect
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (event === 'SIGNED_IN' && newSession) {
-        const u = newSession.user
-        if (u && newSession.access_token) {
-          setSession({
-            access_token: newSession.access_token,
-            refresh_token: newSession.refresh_token,
-            expires_at: newSession.expires_at,
-          })
-          setUser(u)
-          localStorage.setItem('ff_session', JSON.stringify({
-            session: {
-              access_token: newSession.access_token,
-              refresh_token: newSession.refresh_token,
-              expires_at: newSession.expires_at,
-            },
-            user: u,
-          }))
-          await fetchProfile(u.id, newSession.access_token)
-        }
-      }
-
-      if (event === 'PASSWORD_RECOVERY') {
-        console.log('[AuthContext] Password recovery event detected')
-        setIsPasswordResetFlow(true)
+    // Step 1: Restore existing session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user)
+        fetchProfile(session.user.id).finally(() => setLoading(false))
+      } else {
+        setLoading(false)
       }
     })
+
+    // Step 2: Listen for any future auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[Auth] event:', event)
+
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordResetFlow(true)
+          return
+        }
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser(session.user)
+          await fetchProfile(session.user.id)
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+          setProfile(null)
+          setIsPasswordResetFlow(false)
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          setUser(session.user)
+        }
+      }
+    )
 
     return () => subscription.unsubscribe()
   }, [])
 
-  const signOut = () => {
-    setLocalSession(null, null)
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setProfile(null)
+    setIsPasswordResetFlow(false)
   }
 
   const value = {
-    session,
     user,
     profile,
-    signOut,
-    setLocalSession,
+    loading,
     isPasswordResetFlow,
-    setIsPasswordResetFlow
+    setIsPasswordResetFlow,
+    signOut,
+    refreshProfile: () => user && fetchProfile(user.id),
   }
 
   if (loading) {
@@ -167,6 +113,4 @@ export const AuthProvider = ({ children }) => {
   )
 }
 
-export const useAuth = () => {
-  return useContext(AuthContext)
-}
+export const useAuth = () => useContext(AuthContext)

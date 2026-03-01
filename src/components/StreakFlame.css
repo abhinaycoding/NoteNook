@@ -1,0 +1,122 @@
+/* ── Streak Flame ── */
+
+.streak-flame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: default;
+}
+
+.streak-flame-svg {
+  width: 24px;
+  height: 32px;
+  transition: transform 0.3s ease;
+  filter: drop-shadow(0 0 4px rgba(255, 100, 0, 0.3));
+}
+
+.streak-count {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+/* Flame animations */
+.flame-outer {
+  animation: flameFlicker 1.5s ease-in-out infinite alternate;
+  transform-origin: center bottom;
+}
+
+.flame-inner {
+  animation: flameFlicker 1.2s ease-in-out infinite alternate-reverse;
+  transform-origin: center bottom;
+}
+
+.flame-core {
+  animation: coreGlow 2s ease-in-out infinite;
+}
+
+@keyframes flameFlicker {
+  0%   { transform: scaleX(1) scaleY(1); opacity: 0.9; }
+  25%  { transform: scaleX(0.95) scaleY(1.03); }
+  50%  { transform: scaleX(1.03) scaleY(0.97); opacity: 1; }
+  75%  { transform: scaleX(0.97) scaleY(1.02); }
+  100% { transform: scaleX(1.02) scaleY(0.98); opacity: 0.95; }
+}
+
+@keyframes coreGlow {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* Sparks */
+.spark {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ffaa33;
+  pointer-events: none;
+}
+
+.spark-1 {
+  top: 2px;
+  left: 8px;
+  animation: sparkFloat 2.5s ease-out infinite;
+}
+
+.spark-2 {
+  top: 4px;
+  right: 14px;
+  animation: sparkFloat 3s ease-out 0.5s infinite;
+}
+
+.spark-3 {
+  top: 0px;
+  left: 14px;
+  animation: sparkFloat 2s ease-out 1s infinite;
+}
+
+@keyframes sparkFloat {
+  0%   { opacity: 0; transform: translateY(0) scale(1); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-18px) translateX(4px) scale(0.3); }
+}
+
+/* Intensity variants */
+.streak-flame--ember .streak-flame-svg {
+  filter: drop-shadow(0 0 3px rgba(255, 100, 0, 0.2));
+}
+
+.streak-flame--warm .streak-flame-svg {
+  filter: drop-shadow(0 0 5px rgba(255, 100, 0, 0.3));
+}
+
+.streak-flame--strong .streak-flame-svg {
+  filter: drop-shadow(0 0 8px rgba(255, 100, 0, 0.4));
+}
+
+.streak-flame--blazing .streak-flame-svg {
+  filter: drop-shadow(0 0 12px rgba(255, 80, 0, 0.5));
+  animation: blazeGlow 2s ease-in-out infinite;
+}
+
+.streak-flame--legendary .streak-flame-svg {
+  filter: drop-shadow(0 0 18px rgba(255, 50, 0, 0.6))
+         drop-shadow(0 0 30px rgba(255, 120, 0, 0.3));
+  animation: blazeGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes blazeGlow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 80, 0, 0.4)); }
+  50% { filter: drop-shadow(0 0 16px rgba(255, 60, 0, 0.6)); }
+}
+
+.streak-flame--legendary .streak-count {
+  background: linear-gradient(135deg, #ff4500, #ffaa33);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

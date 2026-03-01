@@ -21,14 +21,14 @@ const ProfileSetup = ({ onNavigate, user }) => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
           student_type: studentType,
           target_exam: targetExam,
           goals: goals,
           avatar_id: avatarId,
           updated_at: new Date()
-        })
-        .eq('id', user.id)
+        }, { onConflict: 'id' })
 
       if (error) throw error
       
@@ -104,22 +104,91 @@ const ProfileSetup = ({ onNavigate, user }) => {
 
               <div className="flex flex-col gap-4">
                 <label className="text-xs uppercase tracking-widest font-bold">{t('profile.choosePersona')}</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {ARCHETYPES.map((arch) => (
-                    <button
-                      key={arch.id}
-                      type="button"
-                      onClick={() => setAvatarId(arch.id)}
-                      className={`flex flex-col items-center p-3 border rounded-lg transition-all ${
-                        avatarId === arch.id 
-                          ? 'border-primary bg-primary text-cream scale-105 shadow-md' 
-                          : 'border-border bg-white hover:border-muted'
-                      }`}
-                    >
-                      <span className="text-2xl mb-1">{arch.emoji}</span>
-                      <span className="text-[10px] font-bold uppercase tracking-tight text-center">{arch.name}</span>
-                    </button>
-                  ))}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                  gap: '0.75rem',
+                }}>
+                  {ARCHETYPES.map((arch) => {
+                    const isSelected = avatarId === arch.id;
+                    return (
+                      <button
+                        key={arch.id}
+                        type="button"
+                        onClick={() => setAvatarId(arch.id)}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '1.25rem 0.75rem',
+                          border: isSelected ? `2px solid ${arch.accent}` : '2px solid var(--border, #e5e5e5)',
+                          borderRadius: '12px',
+                          background: isSelected 
+                            ? `linear-gradient(135deg, ${arch.accent}15, ${arch.accent}08)` 
+                            : 'var(--surface, #fff)',
+                          cursor: 'pointer',
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          transform: isSelected ? 'scale(1.04)' : 'scale(1)',
+                          boxShadow: isSelected 
+                            ? `0 4px 20px ${arch.accent}30, 0 0 0 1px ${arch.accent}20` 
+                            : '0 1px 3px rgba(0,0,0,0.06)',
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) {
+                            e.currentTarget.style.transform = 'scale(1.03) translateY(-2px)';
+                            e.currentTarget.style.boxShadow = `0 6px 16px rgba(0,0,0,0.1)`;
+                            e.currentTarget.style.borderColor = arch.accent + '80';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                            e.currentTarget.style.borderColor = 'var(--border, #e5e5e5)';
+                          }
+                        }}
+                      >
+                        {/* Accent dot indicator */}
+                        {isSelected && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '8px',
+                            right: '8px',
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: arch.accent,
+                            boxShadow: `0 0 6px ${arch.accent}`,
+                          }} />
+                        )}
+                        <span style={{ 
+                          fontSize: '2rem', 
+                          marginBottom: '0.5rem',
+                          filter: isSelected ? 'none' : 'grayscale(30%)',
+                          transition: 'filter 0.2s ease',
+                        }}>{arch.emoji}</span>
+                        <span style={{ 
+                          fontSize: '0.7rem', 
+                          fontWeight: 800, 
+                          textTransform: 'uppercase', 
+                          letterSpacing: '0.04em',
+                          textAlign: 'center',
+                          color: isSelected ? arch.accent : 'var(--text-primary, #333)',
+                          transition: 'color 0.2s ease',
+                        }}>{arch.name}</span>
+                        <span style={{ 
+                          fontSize: '0.6rem', 
+                          color: 'var(--text-secondary, #888)',
+                          marginTop: '0.25rem',
+                          textAlign: 'center',
+                          opacity: isSelected ? 1 : 0.7,
+                        }}>{arch.desc}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               

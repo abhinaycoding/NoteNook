@@ -1,34 +1,26 @@
 import React, { useState } from 'react'
 import Navigation from '../components/Navigation'
-import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
-import Loader from '../components/Loader'
 
 const AuthPage = ({ onNavigate }) => {
   const [isLogin, setIsLogin] = useState(true)
-  const [showLoader, setShowLoader] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
-  const { setLocalSession } = useAuth()
   const { t } = useTranslation()
 
   const handleGoogleSignIn = async () => {
     setLoading(true)
     setErrorMsg('')
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        }
-      })
-      if (error) throw error
-    } catch (error) {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin }
+    })
+    if (error) {
       setErrorMsg(error.message)
       setLoading(false)
     }
@@ -40,39 +32,12 @@ const AuthPage = ({ onNavigate }) => {
     setErrorMsg('')
     setSuccessMsg('')
 
-    console.log('[Auth] Starting native auth process. isLogin:', isLogin)
-
     try {
-      const url = import.meta.env.VITE_SUPABASE_URL
-      const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-
       if (isLogin) {
-        console.log('[Auth] Calling native login endpoint...')
-        const res = await fetch(`${url}/auth/v1/token?grant_type=password`, {
-          method: 'POST',
-          headers: {
-            'apikey': key,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email, password })
-        })
-        
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error_description || data.msg || data.message || 'Login failed')
-        
-        console.log('[Auth] Showing loader before navigating to dashboard...')
-        setShowLoader(true)
-
-        setTimeout(async () => {
-          console.log('[Auth] Login complete. Setting local session directly...')
-          await setLocalSession({
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-            expires_at: data.expires_at || Math.floor(Date.now() / 1000) + data.expires_in
-          }, data.user)
-        }, 2500)
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) throw error
+        // onAuthStateChange SIGNED_IN fires → AuthContext sets user+profile → App.jsx navigates
       } else {
-        console.log('[Auth] Calling Supabase signUp...')
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -81,16 +46,12 @@ const AuthPage = ({ onNavigate }) => {
             emailRedirectTo: window.location.origin,
           },
         })
-
         if (error) throw error
-
         if (data?.user?.identities?.length === 0) {
           throw new Error(t('auth.accountExists'))
         }
-
-        if (data.session) {
-          await supabase.auth.signOut()
-        }
+        // Sign out immediately so user must verify email then log in
+        if (data.session) await supabase.auth.signOut()
 
         setSuccessMsg(t('auth.signupSuccess'))
         setEmail('')
@@ -99,23 +60,19 @@ const AuthPage = ({ onNavigate }) => {
         setTimeout(() => setIsLogin(true), 100)
       }
     } catch (error) {
-      console.error('[Auth] Exception caught:', error)
-      setErrorMsg(error?.message || String(error) || 'Unknown error occurred')
+      setErrorMsg(error?.message || 'Unknown error occurred')
     } finally {
       setLoading(false)
-      console.log('[Auth] Process finished, loading set to false.')
     }
   }
 
   return (
     <div className="landing-page min-h-screen flex flex-col">
-      {showLoader && <Loader />}
-      
       <Navigation onNavigate={onNavigate} isAuthPage={true} />
-      
+
       <main className="flex-grow flex items-center justify-center py-20">
         <div className="container max-w-lg mt-12 mb-20">
-          
+
           <div className="border border-ink p-16 bg-cream relative">
             <h2 className="text-5xl font-serif mb-4 text-center">
               {isLogin ? t('auth.loginTitle') : t('auth.signupTitle')}
@@ -129,7 +86,7 @@ const AuthPage = ({ onNavigate }) => {
                 <strong>{t('auth.authError')}</strong> {errorMsg}
               </div>
             )}
-            
+
             {successMsg && (
               <div className="mb-6 p-4 border border-ink text-accent text-sm font-medium">
                 {successMsg}
@@ -157,62 +114,61 @@ const AuthPage = ({ onNavigate }) => {
             </div>
 
             <form onSubmit={handleAuth} className="flex flex-col gap-6">
-                {!isLogin && (
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs uppercase tracking-widest font-bold">{t('auth.fullName')}</label>
-                    <input 
-                      type="text" 
-                      required 
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
-                      placeholder={t('auth.fullNamePlaceholder')}
-                    />
-                  </div>
-                )}
-
+              {!isLogin && (
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-widest font-bold">{t('auth.email')}</label>
-                  <input 
-                    type="email" 
-                    required 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                  <label className="text-xs uppercase tracking-widest font-bold">{t('auth.fullName')}</label>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
-                    placeholder={t('auth.emailPlaceholder')}
+                    placeholder={t('auth.fullNamePlaceholder')}
                   />
                 </div>
+              )}
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs uppercase tracking-widest font-bold">{t('auth.password')}</label>
-                  <input 
-                    type="password" 
-                    required 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
-                    placeholder="••••••••"
-                  />
-                </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-widest font-bold">{t('auth.email')}</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
+                  placeholder={t('auth.emailPlaceholder')}
+                />
+              </div>
 
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="btn-primary w-full mt-4 justify-center py-4 text-sm cursor-pointer hover:bg-primary transition-colors"
-                >
-                  {loading ? t('auth.authenticating') : (isLogin ? t('auth.logInBtn') : t('auth.signUpBtn'))}
-                </button>
-              </form>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-widest font-bold">{t('auth.password')}</label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-transparent border-b border-ink font-serif text-2xl outline-none py-3 focus:border-primary transition-colors"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary w-full mt-4 justify-center py-4 text-sm cursor-pointer hover:bg-primary transition-colors"
+              >
+                {loading ? t('auth.authenticating') : (isLogin ? t('auth.logInBtn') : t('auth.signUpBtn'))}
+              </button>
+            </form>
 
             <div className="mt-12 text-center flex flex-col gap-4">
-              <button 
-                onClick={() => setIsLogin(!isLogin)} 
+              <button
+                onClick={() => setIsLogin(!isLogin)}
                 className="text-xs uppercase tracking-widest text-muted hover:text-primary transition-colors hover:italic cursor-pointer"
               >
                 {isLogin ? t('auth.noPassSignup') : t('auth.havePassLogin')}
               </button>
             </div>
-
           </div>
         </div>
       </main>
@@ -221,7 +177,6 @@ const AuthPage = ({ onNavigate }) => {
         <div>{t('auth.copyright')} © 2026</div>
         <div>{t('auth.allRights')}</div>
       </footer>
-
     </div>
   )
 }

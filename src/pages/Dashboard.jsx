@@ -12,6 +12,9 @@ import { supabase } from '../lib/supabase'
 import OnboardingTour from '../components/OnboardingTour'
 import DangerZone from '../components/DangerZone'
 import MobileBottomNav from '../components/MobileBottomNav'
+import StreakFlame from '../components/StreakFlame'
+import XPBar from '../components/XPBar'
+import DailyScore from '../components/DailyScore'
 import './Dashboard.css'
 
 const Dashboard = ({ onNavigate }) => {
@@ -139,9 +142,15 @@ const Dashboard = ({ onNavigate }) => {
         <div style={{ marginTop: '1.5rem' }}>
           <div className="welcome-greeting">
             {timeGreeting}, {userName}.
-            {streak > 0 && <span className="streak-badge" data-tooltip="Focus sessions completed consecutively">🔥 {streak}{t('dashboard.dayStreak')}</span>}
+            {streak > 0 && <StreakFlame streak={streak} />}
           </div>
           <div className="welcome-date">{dateStr}</div>
+          <div style={{ marginTop: '0.75rem', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: '280px', flex: '1 1 200px' }}>
+              <XPBar />
+            </div>
+            <DailyScore />
+          </div>
         </div>
 
         {/* Mobile Navigation Dropdown */}

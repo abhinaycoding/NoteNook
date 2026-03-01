@@ -14,8 +14,8 @@ import StudyRoomsListPage from './pages/StudyRoomsListPage'
 import StudyRoomPage from './pages/StudyRoomPage'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
-import Loader from './components/Loader'
 import ZenMode from './components/ZenMode'
+import CommandPalette from './components/CommandPalette'
 import { useAuth } from './contexts/AuthContext'
 import { useTheme } from './contexts/ThemeContext'
 import { useTranslation } from './contexts/LanguageContext'
@@ -27,24 +27,11 @@ function App() {
   const [currentPage, setCurrentPage] = useState('landing')
   const [activeRoomId, setActiveRoomId] = useState(null)
   const [activeRoomName, setActiveRoomName] = useState('')
-  const { user, profile, isPasswordResetFlow } = useAuth()
+  const { user, profile, loading: authLoading, isPasswordResetFlow } = useAuth()
   const { isDark, toggle, theme, setThemeById, themes } = useTheme()
   const { language, setLanguage, languages } = useTranslation()
   const [themePanelOpen, setThemePanelOpen] = useState(false)
   const [langPanelOpen, setLangPanelOpen] = useState(false)
-  const [showOAuthLoader, setShowOAuthLoader] = useState(false)
-
-  // Detect OAuth callback (Google redirect) and show the Pencil Loader
-  useEffect(() => {
-    const hash = window.location.hash
-    if (hash && hash.includes('access_token')) {
-      setShowOAuthLoader(true)
-      // Clean the URL hash
-      window.history.replaceState(null, '', window.location.pathname)
-      // Show loader for 2.5s to match the email login experience
-      setTimeout(() => setShowOAuthLoader(false), 2500)
-    }
-  }, [])
 
   const enterRoom = (id, name) => {
     setActiveRoomId(id)
@@ -60,31 +47,35 @@ function App() {
     setCurrentPage(page)
   }
 
+  // Navigation effect — only runs after auth is fully initialized
   useEffect(() => {
+    if (authLoading) return
+
     if (isPasswordResetFlow) {
       setCurrentPage('auth')
       return
     }
 
+    // Kick unauthenticated users off protected pages
     if (!user && PROTECTED.includes(currentPage)) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentPage('landing')
       return
     }
-    if (user && profile) {
-      const needsSetup = !profile.student_type || !profile.target_exam || !profile.goals
-      if (currentPage === 'auth') {
+
+    // Once user is ready, redirect away from auth/landing
+    if (user) {
+      const needsSetup = !profile || !profile.student_type || !profile.target_exam || !profile.goals
+      if (currentPage === 'auth' || currentPage === 'landing') {
         setCurrentPage(needsSetup ? 'setup' : 'dashboard')
       } else if (currentPage === 'dashboard' && needsSetup) {
         setCurrentPage('setup')
       }
     }
-  }, [user, profile, currentPage, isPasswordResetFlow])
+  }, [user, profile, authLoading, currentPage, isPasswordResetFlow])
 
   return (
     <>
       <CustomCursor />
-      {showOAuthLoader && <Loader />}
 
       {/* Floating theme picker */}
       <div className="theme-picker-wrap">
@@ -177,11 +168,29 @@ function App() {
             <ResumeBuilderPage onNavigate={navigateTo} />
           </ProGate>
         )}
-
       </div>
 
-      {/* Global Cinematic Overlay (conditional display inside) */}
+      {/* Global Cinematic Overlay */}
       <ZenMode />
+
+      {/* Command Palette (Ctrl+K) */}
+      {user && (
+        <CommandPalette
+          onNavigate={navigateTo}
+          onAction={(action) => {
+            if (action === 'toggle-theme') toggle()
+            if (action === 'zen') {
+              window.dispatchEvent(new CustomEvent('activate-zen'))
+            }
+            if (action === 'focus-task') {
+              navigateTo('dashboard')
+              setTimeout(() => {
+                document.querySelector('.task-add-input')?.focus()
+              }, 300)
+            }
+          }}
+        />
+      )}
     </>
   )
 }

@@ -1,0 +1,113 @@
+/* ── Breathing Guide ── */
+
+.breathing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999998;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: breatheOverlayIn 0.5s ease;
+}
+
+@keyframes breatheOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.breathing-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.breathing-circle {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(100, 200, 255, 0.15), rgba(100, 200, 255, 0.05));
+  border: 2px solid rgba(100, 200, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform ease-in-out, box-shadow ease-in-out;
+  box-shadow: 0 0 40px rgba(100, 200, 255, 0.1);
+}
+
+.breathing-inner-circle {
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(100, 200, 255, 0.3), transparent);
+  transition: transform ease-in-out;
+}
+
+/* Phase animations */
+.breathing-expand {
+  animation: breatheExpand 4s ease-in-out forwards;
+}
+
+.breathing-hold {
+  animation: breatheHold 7s ease-in-out forwards;
+}
+
+.breathing-shrink {
+  animation: breatheShrink 8s ease-in-out forwards;
+}
+
+@keyframes breatheExpand {
+  from { transform: scale(0.6); box-shadow: 0 0 20px rgba(100, 200, 255, 0.1); }
+  to   { transform: scale(1.2); box-shadow: 0 0 60px rgba(100, 200, 255, 0.3); }
+}
+
+@keyframes breatheHold {
+  from, to { transform: scale(1.2); box-shadow: 0 0 60px rgba(100, 200, 255, 0.3); }
+  50% { box-shadow: 0 0 80px rgba(100, 200, 255, 0.4); }
+}
+
+@keyframes breatheShrink {
+  from { transform: scale(1.2); box-shadow: 0 0 60px rgba(100, 200, 255, 0.3); }
+  to   { transform: scale(0.6); box-shadow: 0 0 20px rgba(100, 200, 255, 0.1); }
+}
+
+.breathing-label {
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.breathing-cycles {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.breathing-close {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.6rem 2rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  border-radius: 100px;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.breathing-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  transform: translateY(-1px);
+}

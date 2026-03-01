@@ -1,0 +1,54 @@
+/* ── Skeleton Loading ── */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border, #e5e5e5) 25%,
+    var(--surface, #f0f0f0) 37%,
+    var(--border, #e5e5e5) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeletonShimmer 1.4s ease infinite;
+  border-radius: 4px;
+}
+
+.skeleton--text {
+  height: 14px;
+  width: 100%;
+}
+
+.skeleton--circle {
+  border-radius: 50%;
+}
+
+.skeleton--card {
+  height: 120px;
+  width: 100%;
+  border-radius: 12px;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1rem;
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+
+/* Dark mode support */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06) 25%,
+    rgba(255, 255, 255, 0.1) 37%,
+    rgba(255, 255, 255, 0.06) 63%
+  );
+  background-size: 400% 100%;
+}
