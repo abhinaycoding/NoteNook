@@ -46,10 +46,10 @@ const ProfileSetup = ({ onNavigate }) => {
         onNavigate('dashboard')
       }
 
-      // Race the save process against a 10-second timeout
+      // Race the save process against a 30-second timeout
       await Promise.race([
         savePromise(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Profile save timed out. Please try again.')), 10000))
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database is taking a while to respond (if this is a free project, it may be waking up). Please try again in a moment.')), 30000))
       ])
 
     } catch (error) {
