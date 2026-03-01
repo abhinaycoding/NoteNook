@@ -62,19 +62,21 @@ function App() {
 
   // ── OAuth Redirect Handler ─────────────────────────────────────────────────
   // After Google OAuth completes, Supabase fires onAuthStateChange which sets
-  // `user`. At that point currentPage is still 'landing' or 'auth', so we
-  // need to push the user forward to the right destination.
+  // `user`. At that point currentPage is 'auth', so we need to push the user 
+  // forward to the right destination. We ONLY do this from the 'auth' page
+  // so we don't aggressively redirect users who just visit the landing page.
   useEffect(() => {
     // Wait until auth is fully resolved (including fetching the profile)
     if (authLoading || !user) return
     
-    if (currentPage === 'landing' || currentPage === 'auth') {
+    // Only auto-redirect if they are actively on the Auth page (e.g. returning from Google)
+    if (currentPage === 'auth') {
       // New Google users have no profile yet → send to setup
       // Returning users have a profile → send to dashboard
       navigateTo(profile ? 'dashboard' : 'setup')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, profile, authLoading])
+  }, [user, profile, authLoading, currentPage])
 
 
   // Global loading state while AuthContext resolves session
