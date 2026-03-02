@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import Navigation from '../components/Navigation';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext';
 import { useToast } from '../contexts/ToastContext';
@@ -33,10 +34,21 @@ const PricingPage = ({ onNavigate }) => {
         profile
       });
       console.log('[Payment] Checkout completed:', paymentResult);
-      console.log('[Payment] Checkout completed:', paymentResult);
+
+      // 2. Log Payment to Firestore (Audit Trail)
+      console.log('[Payment] Logging transaction...');
+      await addDoc(collection(db, 'payments'), {
+        userId: user.uid,
+        userName: profile?.full_name || user?.displayName || 'Scholar',
+        userEmail: user.email,
+        razorpay_payment_id: paymentResult.razorpay_payment_id,
+        amount: 99,
+        currency: 'INR',
+        status: 'captured',
+        timestamp: serverTimestamp()
+      });
 
       // 3. Upgrade Plan directly in Firestore
-      // In production, you'd verify the signature first.
       console.log('[Payment] Upgrading plan...');
       if (upgradePlan) {
         await upgradePlan();
