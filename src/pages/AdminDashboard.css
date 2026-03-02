@@ -9,7 +9,7 @@
 /* ── Command Header ── */
 .admin-hero {
   border-bottom: 1px solid var(--border);
-  padding: 4rem 0;
+  padding: 3rem 0 0;
   margin-bottom: 3rem;
   background: linear-gradient(to bottom, rgba(234, 88, 12, 0.03), transparent);
 }
@@ -18,7 +18,33 @@
   display: flex;
   align-items: baseline;
   gap: 1.5rem;
+  margin-bottom: 2rem;
 }
+
+/* ── Tabs ── */
+.admin-tabs {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  margin-top: 1rem;
+}
+
+.admin-tab-btn {
+  padding: 0.8rem 1.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.admin-tab-btn:hover { color: var(--text-primary); }
+.admin-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 
 .admin-status-blink {
   width: 8px;
@@ -238,7 +264,93 @@
 }
 
 @media (max-width: 1024px) {
-  .admin-main-grid {
-    grid-template-columns: 1fr;
-  }
+  .admin-main-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Badges ── */
+.admin-badge-green {
+  padding: 0.2rem 0.6rem;
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.admin-badge-pro {
+  padding: 0.2rem 0.6rem;
+  background: rgba(79, 70, 229, 0.15);
+  color: #818cf8;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.admin-badge-free {
+  padding: 0.2rem 0.6rem;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+
+/* ── Avatar ── */
+.admin-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+/* ── Search ── */
+.admin-search {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  width: 200px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.admin-search:focus { border-color: var(--primary); }
+
+/* ── Action Buttons ── */
+.admin-action-btn {
+  padding: 0.3rem 0.8rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 2px;
+}
+.admin-action-btn.grant {
+  border-color: #10b981;
+  color: #10b981;
+  background: rgba(16,185,129,0.06);
+}
+.admin-action-btn.grant:hover { background: #10b981; color: #fff; }
+.admin-action-btn.revoke {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239,68,68,0.06);
+}
+.admin-action-btn.revoke:hover { background: #ef4444; color: #fff; }
+
+/* ── Sidebar Admin Btn ── */
+.admin-btn-nav {
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
 }

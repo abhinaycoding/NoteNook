@@ -44,18 +44,14 @@ const ProtectedRoute = ({ user, profile, profileReady, currentPage, onRedirect, 
   return children
 }
 
-const AdminRoute = ({ user, profile, isAdmin, onRedirect, children }) => {
+const AdminRoute = ({ user, profile, isAdmin, profileReady, onRedirect, children }) => {
   useEffect(() => {
-    if (!user) {
-      onRedirect('auth')
-      return
-    }
-    if (profile && !isAdmin) {
-      onRedirect('dashboard')
-    }
-  }, [user, profile, isAdmin, onRedirect])
+    if (!user) { onRedirect('auth'); return }
+    if (profileReady && profile && !isAdmin) { onRedirect('dashboard') }
+  }, [user, profile, isAdmin, profileReady, onRedirect])
 
-  if (!user || (profile && !isAdmin)) return null
+  if (!user) return null
+  if (profileReady && profile && !isAdmin) return null
   return children
 }
 
@@ -122,8 +118,13 @@ function App() {
             </ProtectedRoute>
           )}
 
-          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile'].includes(pageToRender)) && (
+          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'admin'].includes(pageToRender)) && (
             <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
+              {pageToRender === 'admin' ? (
+                <AdminRoute user={user} profile={profile} isAdmin={profile?.isAdmin} profileReady={profileReady} onRedirect={navigateTo}>
+                  <AdminDashboard onNavigate={navigateTo} />
+                </AdminRoute>
+              ) : (
               <Layout onNavigate={navigateTo} activeTab={pageToRender} fullBleed={pageToRender === 'room'}>
 
                 {pageToRender === 'dashboard' && <Dashboard onNavigate={navigateTo} />}
@@ -153,12 +154,8 @@ function App() {
                 {pageToRender === 'profile' && (
                   <PublicProfilePage onNavigate={navigateTo} />
                 )}
-                {pageToRender === 'admin' && (
-                  <AdminRoute user={user} profile={profile} isAdmin={profile?.isAdmin} onRedirect={navigateTo}>
-                    <AdminDashboard onNavigate={navigateTo} />
-                  </AdminRoute>
-                )}
               </Layout>
+              )}
             </ProtectedRoute>
           )}
         </div>
