@@ -132,6 +132,68 @@
   border-bottom-color: var(--primary);
 }
 
+.mt-4 {
+  margin-top: 1rem;
+}
+
+.exam-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.exam-chip {
+  padding: 0.6rem 1.25rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 4px;
+}
+
+.exam-chip:hover {
+  border-color: var(--primary);
+  color: var(--text-primary);
+  background: rgba(var(--primary-rgb, 234, 88, 12), 0.05);
+}
+
+.exam-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb, 234, 88, 12), 0.3);
+}
+
+.date-picker-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.date-input {
+  cursor: pointer;
+  position: relative;
+}
+
+/* Style the native date picker icon if possible */
+.date-input::-webkit-calendar-picker-indicator {
+  filter: invert(var(--calendar-icon-invert, 0.5));
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .form-textarea {
   min-height: 100px;
   resize: none;

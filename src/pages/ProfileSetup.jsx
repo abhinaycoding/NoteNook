@@ -13,10 +13,14 @@ const ProfileSetup = ({ onNavigate }) => {
   
   const [studentType, setStudentType] = useState(profile?.student_type || 'High School')
   const [targetExam, setTargetExam] = useState(profile?.target_exam || '')
+  const [examDate, setExamDate] = useState(profile?.exam_date || '')
+  const [isCustomExam, setIsCustomExam] = useState(false)
   const [goals, setGoals] = useState(profile?.goals || '')
   const [avatarId, setAvatarId] = useState(profile?.avatar_id || 'owl')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+
+  const EXAM_OPTIONS = ['JEE Main', 'JEE Advanced', 'NEET', 'UPSC', 'GATE', 'CAT']
 
   const handleSaveProfile = async (e) => {
     e.preventDefault()
@@ -30,6 +34,7 @@ const ProfileSetup = ({ onNavigate }) => {
         id: user.uid,
         student_type: studentType,
         target_exam: targetExam,
+        exam_date: examDate,
         goals: goals,
         avatar_id: avatarId,
         updated_at: new Date().toISOString()
@@ -46,6 +51,16 @@ const ProfileSetup = ({ onNavigate }) => {
       setErrorMsg(error.message || 'An error occurred while saving your profile.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleExamSelect = (exam) => {
+    if (exam === 'Custom') {
+      setIsCustomExam(true)
+      setTargetExam('')
+    } else {
+      setIsCustomExam(false)
+      setTargetExam(exam)
     }
   }
 
@@ -89,15 +104,51 @@ const ProfileSetup = ({ onNavigate }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Target Exam / Core Subject</label>
-              <input 
-                className="form-input"
-                type="text" 
-                required 
-                value={targetExam}
-                onChange={(e) => setTargetExam(e.target.value)}
-                placeholder="e.g. JEE, NEET, Bar Exam, Calculus"
-              />
+              <label className="form-label">Target Examination</label>
+              <div className="exam-chips-grid">
+                {EXAM_OPTIONS.map(exam => (
+                  <button
+                    key={exam}
+                    type="button"
+                    className={`exam-chip ${targetExam === exam ? 'active' : ''}`}
+                    onClick={() => handleExamSelect(exam)}
+                  >
+                    {exam}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`exam-chip ${isCustomExam ? 'active' : ''}`}
+                  onClick={() => handleExamSelect('Custom')}
+                >
+                  Custom
+                </button>
+              </div>
+
+              {isCustomExam && (
+                <input 
+                  className="form-input mt-4"
+                  type="text" 
+                  required 
+                  value={targetExam}
+                  onChange={(e) => setTargetExam(e.target.value)}
+                  placeholder="Type your exam name..."
+                  autoFocus
+                />
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Examination Date</label>
+              <div className="date-picker-wrapper">
+                <input 
+                  className="form-input date-input"
+                  type="date" 
+                  required 
+                  value={examDate}
+                  onChange={(e) => setExamDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="form-group">
