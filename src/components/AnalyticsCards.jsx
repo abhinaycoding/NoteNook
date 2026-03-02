@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { db } from '../lib/firebase'
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
 import '../pages/Dashboard.css'
@@ -62,29 +62,24 @@ const AnalyticsCards = () => {
   const quotes = t('analytics.quotes')
   const quote = Array.isArray(quotes) ? quotes[new Date().getDay() % quotes.length] : quotes
 
-  const fetchStats = async () => {
+  useEffect(() => {
     if (!user?.uid) return
-    try {
-      const today = new Date(); today.setHours(0, 0, 0, 0)
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const todayStart = today.getTime()
 
-      const [sessSnap, taskSnap] = await Promise.all([
-        getDocs(query(collection(db, 'sessions'), where('user_id', '==', user.uid))),
-        getDocs(query(collection(db, 'tasks'), where('user_id', '==', user.uid)))
-      ])
+    const qSess = query(collection(db, 'sessions'), where('user_id', '==', user.uid))
+    const qTasks = query(collection(db, 'tasks'), where('user_id', '==', user.uid))
 
-      const todayStart = today.getTime()
-      const sessions = sessSnap.docs
-        .map(doc => doc.data())
-        .filter(s => {
-          const date = s.created_at?.toDate ? s.created_at.toDate() : new Date(s.created_at)
-          return date.getTime() >= todayStart
-        })
-      const allTasks = taskSnap.docs.map(doc => doc.data())
+    let sessionsData = []
+    let allTasks = []
 
-      // Harmonized filter with TaskPlanner
+    const recalc = () => {
+      const todaySessions = sessionsData.filter(s => {
+        const date = s.created_at?.toDate ? s.created_at.toDate() : new Date(s.created_at)
+        return date.getTime() >= todayStart
+      })
       const filteredTasks = allTasks.filter(t => t.due_date !== 'goal' && t.due_date !== 'syllabus')
-      
-      const totalSeconds = sessions.reduce((s, r) => s + (r.duration_seconds || 0), 0)
+      const totalSeconds = todaySessions.reduce((s, r) => s + (r.duration_seconds || 0), 0)
       const completedCount = filteredTasks.filter(t => t.completed).length
       const totalCount = filteredTasks.length
 
@@ -95,26 +90,20 @@ const AnalyticsCards = () => {
         totalTasks: totalCount,
         completionRate: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
       }))
-    } catch (err) {
-      console.error('Stats error:', err.message)
-    } finally {
       setLoading(false)
     }
-  }
 
-  useEffect(() => {
-    if (user?.uid) {
-      fetchStats()
+    const unsubSess = onSnapshot(qSess, (snap) => {
+      sessionsData = snap.docs.map(d => d.data())
+      recalc()
+    }, (err) => { console.error('Stats sessions error:', err.message); setLoading(false) })
 
-      const handleUpdate = () => fetchStats()
-      window.addEventListener('task-updated', handleUpdate)
-      window.addEventListener('session-saved', handleUpdate)
+    const unsubTasks = onSnapshot(qTasks, (snap) => {
+      allTasks = snap.docs.map(d => d.data())
+      recalc()
+    }, (err) => { console.error('Stats tasks error:', err.message); setLoading(false) })
 
-      return () => {
-        window.removeEventListener('task-updated', handleUpdate)
-        window.removeEventListener('session-saved', handleUpdate)
-      }
-    }
+    return () => { unsubSess(); unsubTasks() }
   }, [user?.uid])
 
   if (loading) {
