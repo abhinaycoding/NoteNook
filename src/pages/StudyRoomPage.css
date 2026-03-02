@@ -50,7 +50,8 @@
   grid-template-columns: 300px 1fr 340px;
   gap: 1.5rem;
   align-items: stretch;
-  min-height: calc(100vh - 180px);
+  height: calc(100vh - 180px);
+  overflow: hidden;
 }
 
 /* ── Code badge ── */

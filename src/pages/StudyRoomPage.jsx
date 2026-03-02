@@ -330,6 +330,21 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Cleanup: delete user's messages on unmount (temporary chat)
+  useEffect(() => {
+    return () => {
+      if (!roomId || !user?.uid) return
+      const q = query(
+        collection(db, 'room_messages'),
+        where('room_id', '==', roomId),
+        where('user_id', '==', user.uid)
+      )
+      getDocs(q).then(snap => {
+        snap.docs.forEach(d => deleteDoc(doc(db, 'room_messages', d.id)).catch(() => {}))
+      }).catch(() => {})
+    }
+  }, [roomId, user?.uid])
+
   const EMOTES = ['🔥', '💯', '🧠', '☕', '💡', '🚀']
   const completes = tasks.filter(t => t.completed)
   const incompletes = tasks.filter(t => !t.completed)
@@ -438,12 +453,12 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
             </div>
 
             {/* RIGHT — Chat */}
-            <div className="room-panel room-panel--chat flex flex-col h-full">
-              <div className="p-4 border-b border-ink flex items-center gap-2">
+            <div className="room-panel room-panel--chat" style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', overflow: 'hidden' }}>
+              <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                 <span className="live-dot" />
                 <span className="font-serif italic text-muted">Live Chat</span>
               </div>
-              <div className="flex-1 overflow-y-auto p-4" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: 0 }}>
                 {messages.length === 0 && (
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.45, gap: '0.5rem' }}>
                     <div style={{ fontSize: '2rem' }}>💬</div>
@@ -460,7 +475,6 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                   const showName = !prevMsg || prevMsg.user_id !== msg.user_id
                   return (
                     <div key={msg.id} style={{ display: 'flex', gap: '0.5rem', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
-                      {/* Avatar shown at first message of a group */}
                       <div style={{ width: 28, flexShrink: 0 }}>
                         {showName && (
                           <div style={{ width: 28, height: 28, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
@@ -502,8 +516,9 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                 )}
                 <div ref={chatBottomRef} />
               </div>
-              <div className="p-4 border-t border-ink" style={{ background: 'rgba(var(--bg-card-rgb,255,255,255),0.5)' }}>
-                <div className="flex gap-2 mb-3 justify-center">
+              {/* Input area — pinned at bottom */}
+              <div style={{ flexShrink: 0, padding: '0.75rem 1rem', borderTop: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', justifyContent: 'center' }}>
                   {EMOTES.map(emoji => (
                     <button key={emoji} onClick={() => broadcastEmote(emoji)}
                       style={{ fontSize: '1.2rem', transition: 'transform 0.15s', background: 'none', border: 'none', cursor: 'pointer' }}
@@ -512,7 +527,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                     >{emoji}</button>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: '0 ', alignItems: 'center', background: 'var(--bg-card)', border: '1px solid var(--ink)', boxShadow: '2px 2px 0 var(--ink)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-color)', border: '1px solid var(--border)', borderRadius: '24px', overflow: 'hidden' }}>
                   <input
                     type="text"
                     value={chatInput}
@@ -524,7 +539,7 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                   <button
                     onClick={sendChat}
                     disabled={!chatInput.trim()}
-                    style={{ padding: '0.65rem 1rem', background: chatInput.trim() ? 'var(--ink)' : 'transparent', color: chatInput.trim() ? 'var(--bg-card)' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase', border: 'none', cursor: chatInput.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.2s', fontFamily: 'var(--font-sans)' }}
+                    style={{ padding: '0.65rem 1rem', background: chatInput.trim() ? 'var(--primary)' : 'transparent', color: chatInput.trim() ? '#fff' : 'var(--text-secondary)', fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.12em', textTransform: 'uppercase', border: 'none', borderRadius: '0 24px 24px 0', cursor: chatInput.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.2s', fontFamily: 'var(--font-sans)' }}
                   >Send →</button>
                 </div>
               </div>
