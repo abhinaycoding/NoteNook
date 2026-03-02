@@ -39,6 +39,9 @@ export const AuthProvider = ({ children }) => {
       if (flowId !== authFlowIdRef.current) return
       console.warn('Profile hydration failed:', err.message)
       setProfile(null)
+      // Ensure we don't hang even on profile error
+      setProfileReady(true)
+      setLoading(false)
     } finally {
       if (flowId === authFlowIdRef.current) {
         setProfileReady(true)

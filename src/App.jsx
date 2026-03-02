@@ -60,6 +60,17 @@ function App() {
     setCurrentPage(page)
   }
 
+  // Auto-redirect authenticated users from public pages to protected dashboard
+  useEffect(() => {
+    if (user && profileReady && (currentPage === 'landing' || currentPage === 'auth')) {
+      if (profile) {
+        navigateTo('dashboard')
+      } else {
+        navigateTo('setup')
+      }
+    }
+  }, [user, profile, profileReady, currentPage])
+
   if (authLoading) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-color, #0a0a0a)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
