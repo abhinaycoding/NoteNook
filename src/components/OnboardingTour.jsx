@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from '../contexts/LanguageContext'
+import './OnboardingTour.css'
 
 const OnboardingTour = ({ onComplete }) => {
   const [step, setStep] = useState(0)
   const [pos, setPos] = useState({ top: 0, left: 0, width: 0, height: 0 })
+  const [animKey, setAnimKey] = useState(0) // forces re-animation on step change
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768)
   const tooltipRef = useRef(null)
   const { t } = useTranslation()
 
@@ -13,30 +16,40 @@ const OnboardingTour = ({ onComplete }) => {
       title: t('tour.step1Title'),
       desc: t('tour.step1Desc'),
       position: 'bottom',
+      emoji: '🎨',
     },
     {
       target: '.timer-widget',
       title: t('tour.step2Title'),
       desc: t('tour.step2Desc'),
       position: 'bottom',
+      emoji: '⏱',
     },
     {
       target: '.ledger-container, .add-task-trigger',
       title: t('tour.step3Title'),
       desc: t('tour.step3Desc'),
       position: 'top',
+      emoji: '📋',
     },
     {
       target: '.desktop-nav, .mobile-nav-toggle',
       title: t('tour.step4Title'),
       desc: t('tour.step4Desc'),
       position: 'bottom',
+      emoji: '🧭',
     },
   ]
 
   const current = TOUR_STEPS[step]
 
   useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const updatePos = useCallback(() => {
     const selectors = current.target.split(',').map(s => s.trim())
     let el = null
     for (const sel of selectors) {
@@ -52,18 +65,21 @@ const OnboardingTour = ({ onComplete }) => {
       width: rect.width,
       height: rect.height,
     })
-
-    // Scroll element into view
     el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
+
+  useEffect(() => {
+    setAnimKey(k => k + 1)
+    const timer = setTimeout(updatePos, 80) // small delay for scroll
+    return () => clearTimeout(timer)
+  }, [step, updatePos])
 
   const handleNext = () => {
     if (step < TOUR_STEPS.length - 1) {
       setStep(step + 1)
     } else {
-      localStorage.setItem('ff_onboarding_done', 'true')
-      onComplete()
+      handleSkip()
     }
   }
 
@@ -72,10 +88,12 @@ const OnboardingTour = ({ onComplete }) => {
     onComplete()
   }
 
-  // Tooltip positioning
+  // Compute tooltip position
   const tooltipStyle = (() => {
-    const style = { position: 'absolute', zIndex: 100010 }
-    const pad = 16
+    if (isMobile) return {} // CSS handles fixed positioning on mobile
+
+    const pad = 18
+    const style = {}
 
     if (current.position === 'bottom') {
       style.top = pos.top + pos.height + pad
@@ -87,90 +105,64 @@ const OnboardingTour = ({ onComplete }) => {
       style.transform = 'translate(-50%, -100%)'
     }
 
+    // Keep within viewport horizontally
+    style.maxWidth = '300px'
     return style
   })()
 
   return (
     <>
-      {/* Overlay */}
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 100005,
-        background: 'rgba(0,0,0,0.55)',
-        transition: 'opacity 0.3s ease',
-      }} onClick={handleSkip} />
+      {/* Dimmed overlay */}
+      <div className="tour-overlay" onClick={handleSkip} />
 
-      {/* Spotlight cutout */}
-      <div style={{
-        position: 'absolute', zIndex: 100006,
-        top: pos.top - 8, left: pos.left - 8,
-        width: pos.width + 16, height: pos.height + 16,
-        boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-        borderRadius: '4px',
-        border: '2px solid var(--primary)',
-        pointerEvents: 'none',
-        transition: 'all 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
-      }} />
+      {/* Spotlight ring around the target element */}
+      <div
+        className="tour-spotlight"
+        style={{
+          top: pos.top - 8,
+          left: pos.left - 8,
+          width: pos.width + 16,
+          height: pos.height + 16,
+        }}
+      />
 
-      {/* Tooltip */}
-      <div ref={tooltipRef} style={tooltipStyle}>
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--text-primary)',
-          boxShadow: '4px 4px 0px var(--text-primary)',
-          padding: '1.25rem 1.5rem',
-          maxWidth: '320px',
-          minWidth: '260px',
-          fontFamily: 'var(--font-sans)',
-        }}>
-          {/* Step counter */}
-          <div style={{
-            fontSize: '0.6rem', textTransform: 'uppercase',
-            letterSpacing: '0.15em', color: 'var(--text-secondary)',
-            marginBottom: '0.5rem', fontWeight: 700,
-          }}>
-            {t('tour.step')} {step + 1} {t('tour.of')} {TOUR_STEPS.length}
+      {/* Tooltip card */}
+      <div
+        ref={tooltipRef}
+        key={animKey}
+        className={`tour-tooltip ${current.position === 'top' ? 'pos-top' : ''}`}
+        style={tooltipStyle}
+      >
+        <div className="tour-card">
+          {/* Step & progress dots */}
+          <div className="tour-step-badge">
+            <span>{t('tour.step')} {step + 1} {t('tour.of')} {TOUR_STEPS.length}</span>
+            <div className="tour-progress-dots">
+              {TOUR_STEPS.map((_, i) => (
+                <div
+                  key={i}
+                  className={`tour-dot ${i === step ? 'active' : i < step ? 'done' : ''}`}
+                />
+              ))}
+            </div>
           </div>
 
-          {/* Title */}
-          <div style={{
-            fontFamily: 'var(--font-serif)', fontSize: '1.25rem',
-            marginBottom: '0.5rem', color: 'var(--text-primary)',
-          }}>
+          {/* Emoji + Title */}
+          <div className="tour-title">
+            {current.emoji && <span style={{ marginRight: '0.4rem' }}>{current.emoji}</span>}
             {current.title}
           </div>
 
-          {/* Desc */}
-          <p style={{
-            fontSize: '0.8rem', lineHeight: 1.5,
-            color: 'var(--text-secondary)', marginBottom: '1rem',
-          }}>
-            {current.desc}
-          </p>
+          {/* Description */}
+          <p className="tour-desc">{current.desc}</p>
 
           {/* Actions */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button
-              onClick={handleSkip}
-              style={{
-                fontSize: '0.65rem', textTransform: 'uppercase',
-                letterSpacing: '0.1em', color: 'var(--text-secondary)',
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: 'var(--font-sans)',
-              }}
-            >
+          <div className="tour-actions">
+            <button className="tour-skip-btn" onClick={handleSkip}>
               {t('tour.skipTour')}
             </button>
-            <button
-              onClick={handleNext}
-              style={{
-                fontSize: '0.7rem', textTransform: 'uppercase',
-                letterSpacing: '0.1em', fontWeight: 700,
-                background: 'var(--text-primary)', color: 'var(--bg-card)',
-                border: 'none', padding: '0.5rem 1.25rem',
-                cursor: 'pointer', fontFamily: 'var(--font-sans)',
-              }}
-            >
-              {step === TOUR_STEPS.length - 1 ? t('tour.finish') : t('tour.next')}
+            <button className="tour-next-btn" onClick={handleNext}>
+              <span>{step === TOUR_STEPS.length - 1 ? t('tour.finish') : t('tour.next')}</span>
             </button>
           </div>
         </div>

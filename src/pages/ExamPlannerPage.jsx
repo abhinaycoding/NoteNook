@@ -34,8 +34,7 @@ const ExamPlannerPage = ({ onNavigate }) => {
         const q = query(
           collection(db, 'tasks'), 
           where('user_id', '==', user.uid),
-          where('due_date', '==', 'syllabus'),
-          orderBy('created_at', 'asc')
+          where('due_date', '==', 'syllabus')
         )
         const snap = await getDocs(q)
         setTopics(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
