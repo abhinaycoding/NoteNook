@@ -147,17 +147,24 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
     return () => unsubscribe()
   }, [roomId])
 
-  // 4. Chat Messages
+  // 4. Chat Messages — sort client-side so no composite index needed immediately
   useEffect(() => {
     if (!roomId) return
     const q = query(
       collection(db, 'room_messages'),
       where('room_id', '==', roomId),
-      orderBy('created_at', 'asc'),
-      limit(60)
+      limit(80)
     )
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+      const msgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      msgs.sort((a, b) => {
+        const ta = a.created_at?.toDate ? a.created_at.toDate().getTime() : 0
+        const tb = b.created_at?.toDate ? b.created_at.toDate().getTime() : 0
+        return ta - tb
+      })
+      setMessages(msgs)
+    }, (err) => {
+      console.error('Chat listener error:', err.message)
     })
     return () => unsubscribe()
   }, [roomId])
@@ -437,6 +444,13 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                 <span className="font-serif italic text-muted">Live Chat</span>
               </div>
               <div className="flex-1 overflow-y-auto p-4" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {messages.length === 0 && (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.45, gap: '0.5rem' }}>
+                    <div style={{ fontSize: '2rem' }}>💬</div>
+                    <p style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, color: 'var(--text-secondary)' }}>No messages yet</p>
+                    <p style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textAlign: 'center' }}>Be the first to say something to your study group!</p>
+                  </div>
+                )}
                 {messages.map((msg, i) => {
                   const isMe = msg.user_id === guestId
                   const arche = getArchetype(msg.avatar_id || 'owl')
@@ -445,8 +459,8 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                   const prevMsg = messages[i - 1]
                   const showName = !prevMsg || prevMsg.user_id !== msg.user_id
                   return (
-                    <div key={msg.id} className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                      {/* Avatar (show only when name changes) */}
+                    <div key={msg.id} style={{ display: 'flex', gap: '0.5rem', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end' }}>
+                      {/* Avatar shown at first message of a group */}
                       <div style={{ width: 28, flexShrink: 0 }}>
                         {showName && (
                           <div style={{ width: 28, height: 28, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }}>
@@ -456,29 +470,34 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
                       </div>
                       <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: '2px' }}>
                         {showName && (
-                          <span style={{ fontSize: '0.6rem', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase' }}>
+                          <span style={{ fontSize: '0.6rem', letterSpacing: '0.05em', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', paddingLeft: isMe ? 0 : '0.25rem', paddingRight: isMe ? '0.25rem' : 0 }}>
                             {isMe ? 'You' : msg.display_name}
                           </span>
                         )}
                         <div style={{
-                          padding: '0.5rem 0.85rem',
+                          padding: '0.5rem 0.9rem',
                           background: isMe ? 'var(--primary)' : 'var(--bg-card)',
                           color: isMe ? '#fff' : 'var(--text-primary)',
                           border: isMe ? 'none' : '1px solid var(--border)',
-                          borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                          fontSize: '0.85rem', lineHeight: 1.4,
-                          boxShadow: isMe ? 'none' : '2px 2px 0 var(--border)'
+                          borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                          fontSize: '0.85rem', lineHeight: 1.45, wordBreak: 'break-word',
+                          boxShadow: isMe ? '0 2px 8px rgba(0,0,0,0.15)' : 'none'
                         }}>
                           {msg.text}
                         </div>
-                        {timeStr && <span style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', opacity: 0.6 }}>{timeStr}</span>}
+                        {timeStr && <span style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', opacity: 0.55, padding: '0 0.25rem' }}>{timeStr}</span>}
                       </div>
                     </div>
                   )
                 })}
                 {typingUsers.length > 0 && (
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontStyle: 'italic', paddingLeft: '2.2rem' }}>
-                    {typingUsers.join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing…
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', paddingLeft: '2.4rem' }}>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px', padding: '0.4rem 0.75rem', display: 'flex', gap: '3px', alignItems: 'center' }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-secondary)', animation: 'typing-dot 1.2s infinite', display: 'inline-block' }} />
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-secondary)', animation: 'typing-dot 1.2s 0.2s infinite', display: 'inline-block' }} />
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--text-secondary)', animation: 'typing-dot 1.2s 0.4s infinite', display: 'inline-block' }} />
+                    </div>
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>{typingUsers.join(', ')} typing…</span>
                   </div>
                 )}
                 <div ref={chatBottomRef} />
