@@ -114,6 +114,7 @@ export const AuthProvider = ({ children }) => {
     profile,
     profileReady,
     loading,
+    isAdmin: profile?.isAdmin || false,
     signOut,
     refreshProfile,
     // session is maintained as undefined/null for compat, firebase uses currentUser

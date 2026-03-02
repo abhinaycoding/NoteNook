@@ -13,6 +13,7 @@ import CalendarPage from './pages/CalendarPage'
 import StudyRoomsListPage from './pages/StudyRoomsListPage'
 import StudyRoomPage from './pages/StudyRoomPage'
 import PublicProfilePage from './pages/PublicProfilePage'
+import AdminDashboard from './pages/AdminDashboard'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
 import ZenMode from './components/ZenMode'
@@ -40,6 +41,21 @@ const ProtectedRoute = ({ user, profile, profileReady, currentPage, onRedirect, 
   if (!user) return null
   if (!profileReady) return null
   if (!profile && currentPage !== 'setup') return null
+  return children
+}
+
+const AdminRoute = ({ user, profile, isAdmin, onRedirect, children }) => {
+  useEffect(() => {
+    if (!user) {
+      onRedirect('auth')
+      return
+    }
+    if (profile && !isAdmin) {
+      onRedirect('dashboard')
+    }
+  }, [user, profile, isAdmin, onRedirect])
+
+  if (!user || (profile && !isAdmin)) return null
   return children
 }
 
@@ -84,6 +100,8 @@ function App() {
 
   const pageToRender = currentPage === 'auth' && user && profileReady
     ? (profile ? 'dashboard' : 'setup')
+    : currentPage === 'admin' && (!user || (profile && !profile.isAdmin))
+    ? 'dashboard'
     : currentPage
 
   return (
@@ -134,6 +152,11 @@ function App() {
                 )}
                 {pageToRender === 'profile' && (
                   <PublicProfilePage onNavigate={navigateTo} />
+                )}
+                {pageToRender === 'admin' && (
+                  <AdminRoute user={user} profile={profile} isAdmin={profile?.isAdmin} onRedirect={navigateTo}>
+                    <AdminDashboard onNavigate={navigateTo} />
+                  </AdminRoute>
                 )}
               </Layout>
             </ProtectedRoute>

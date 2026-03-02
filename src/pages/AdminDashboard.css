@@ -1,0 +1,244 @@
+.admin-dashboard {
+  min-height: calc(100vh - 80px);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  padding-bottom: 5rem;
+  font-family: var(--font-sans);
+}
+
+/* ── Command Header ── */
+.admin-hero {
+  border-bottom: 1px solid var(--border);
+  padding: 4rem 0;
+  margin-bottom: 3rem;
+  background: linear-gradient(to bottom, rgba(234, 88, 12, 0.03), transparent);
+}
+
+.admin-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5rem;
+}
+
+.admin-status-blink {
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ef4444;
+  animation: admin-pulse 2s infinite;
+}
+
+@keyframes admin-pulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+/* ── Metric Grid ── */
+.admin-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.admin-metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.admin-metric-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.admin-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2px;
+  height: 0;
+  background: var(--primary);
+  transition: height 0.3s ease;
+}
+
+.admin-metric-card:hover::before {
+  height: 100%;
+}
+
+.admin-metric-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.admin-metric-value {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
+.admin-metric-trend {
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.trend-up { color: #10b981; }
+
+/* ── Action Panels ── */
+.admin-main-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 2rem;
+}
+
+.admin-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-panel-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admin-panel-title {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-style: italic;
+}
+
+/* ── Data Tables ── */
+.admin-table-container {
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th {
+  text-align: left;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-table td {
+  padding: 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px dotted var(--border);
+}
+
+.admin-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+}
+
+/* ── Broadcast Form ── */
+.admin-broadcast-area {
+  padding: 2rem;
+}
+
+.admin-input-group {
+  margin-bottom: 1.5rem;
+}
+
+.admin-input-group label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 0.8rem;
+}
+
+.admin-textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 1rem;
+  font-family: var(--font-sans);
+  resize: none;
+  transition: border-color 0.3s ease;
+}
+
+.admin-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.admin-btn {
+  width: 100%;
+  padding: 1rem;
+  background: var(--text-primary);
+  color: var(--bg-color);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.admin-btn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* ── Activity Feed ── */
+.admin-feed {
+  padding: 1.5rem 0;
+}
+
+.admin-feed-item {
+  padding: 1rem 2rem;
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  border-left: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.admin-feed-item:hover {
+  background: rgba(255,255,255,0.02);
+  border-left-color: var(--primary);
+}
+
+.feed-time {
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+  .admin-main-grid {
+    grid-template-columns: 1fr;
+  }
+}

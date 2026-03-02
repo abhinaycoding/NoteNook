@@ -7,7 +7,7 @@ import './Sidebar.css'
 
 const Sidebar = ({ activeTab, onNavigate }) => {
   const { isPro } = usePlan()
-  const { signOut } = useAuth()
+  const { signOut, isAdmin } = useAuth()
   const { theme, setThemeById, toggle, isDark, themes } = useTheme()
   const { language, setLanguage, languages } = useTranslation()
   const [themePanelOpen, setThemePanelOpen] = useState(false)
@@ -88,6 +88,14 @@ const Sidebar = ({ activeTab, onNavigate }) => {
         </nav>
 
         <div className="sidebar-footer">
+          {isAdmin && (
+            <button className={`nav-item admin-btn-nav ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => onNavigate('admin')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+              </svg>
+              <span className="nav-label">Command Center</span>
+            </button>
+          )}
           {/* Settings / Controls */}
           <div className="sidebar-settings">
             <button 
