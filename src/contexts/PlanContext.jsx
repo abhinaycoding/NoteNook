@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { doc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore'
 import { useAuth } from './AuthContext'
 
 const PlanContext = createContext(null)
@@ -9,72 +10,59 @@ export function PlanProvider({ children }) {
   const { user } = useAuth()
   const [isPro, setIsPro] = useState(false)
 
-  // Load plan from Supabase profile
+  // Load plan from Firestore profile
   useEffect(() => {
-    let sub = null
+    if (!user?.uid) {
+      setIsPro(false)
+      return
+    }
 
-    const fetchPlan = async () => {
-      if (!user) {
+    // Subscribe to profile changes
+    const unsubscribe = onSnapshot(doc(db, 'profiles', user.uid), (snapshot) => {
+      if (snapshot.exists()) {
+        setIsPro(!!snapshot.data().is_pro)
+      } else {
         setIsPro(false)
-        return
       }
+    }, (error) => {
+      console.warn('Plan listener error:', error.message)
+    })
 
-      // Initial fetch
-      const { data } = await supabase
-        .from('profiles')
-        .select('is_pro')
-        .eq('id', user.id)
-        .single()
-      
-      setIsPro(!!data?.is_pro)
-
-      // Listen for updates (e.g. from Stripe Webhook)
-      sub = supabase
-        .channel(`profile_plan:${user.id}`)
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`
-        }, (payload) => {
-          setIsPro(!!payload.new.is_pro)
-        })
-        .subscribe()
-    }
-
-    fetchPlan()
-
-    return () => {
-      if (sub) supabase.removeChannel(sub)
-    }
+    return () => unsubscribe()
   }, [user])
 
-  // Stub function for direct UI tests if needed (actual upgrades happen via Stripe Webhook)
+  // Stub function for direct UI tests if needed (actual upgrades happen via Stripe/Razorpay)
   const upgradePlanFallback = async () => {
-    if (!user) return
+    if (!user?.uid) return
     setIsPro(true)
     try {
-      await supabase.from('profiles').update({ is_pro: true }).eq('id', user.id)
-    } catch { /* best-effort */ }
+      await updateDoc(doc(db, 'profiles', user.uid), { is_pro: true })
+    } catch (err) {
+      console.error('Manual upgrade failed:', err.message)
+    }
   }
 
   const downgradePlanFallback = async () => {
-    if (!user) return
+    if (!user?.uid) return
     setIsPro(false)
     try {
-      await supabase.from('profiles').update({ is_pro: false }).eq('id', user.id)
-    } catch { /* best-effort */ }
+      await updateDoc(doc(db, 'profiles', user.uid), { is_pro: false })
+    } catch (err) {
+      console.error('Manual downgrade failed:', err.message)
+    }
   }
 
-  // Force re-fetch plan status from DB (called after payment verification)
+  // Force re-fetch plan status from DB
   const refreshPlan = async () => {
-    if (!user) return
-    const { data } = await supabase
-      .from('profiles')
-      .select('is_pro')
-      .eq('id', user.id)
-      .single()
-    setIsPro(!!data?.is_pro)
+    if (!user?.uid) return
+    try {
+      const docSnap = await getDoc(doc(db, 'profiles', user.uid))
+      if (docSnap.exists()) {
+        setIsPro(!!docSnap.data().is_pro)
+      }
+    } catch (err) {
+      console.error('Refresh plan error:', err.message)
+    }
   }
 
   return (

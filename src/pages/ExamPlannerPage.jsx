@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
-import './ExamPlannerPage.css'
-
-const COMMON_EXAMS = ['JEE Main', 'JEE Advanced', 'NEET', 'UPSC', 'CAT', 'GATE', 'CUET', 'Custom']
+import { useTranslation } from '../contexts/LanguageContext'
 
 const ExamPlannerPage = ({ onNavigate }) => {
   const { user } = useAuth()
@@ -18,51 +17,51 @@ const ExamPlannerPage = ({ onNavigate }) => {
   const [newTopicSubject, setNewTopicSubject] = useState('Physics')
   const [saving, setSaving] = useState(false)
 
-  // Load saved exam data from Supabase profile + localStorage
+  // Load saved exam data
   useEffect(() => {
     const loadExamData = async () => {
+      if (!user?.uid) return
       try {
-        // Restore from localStorage first (fast, no network)
-        const savedDate = localStorage.getItem(`ff_exam_date_${user}`)
-        const savedName = localStorage.getItem(`ff_exam_name_${user}`)
+        // Restore from localStorage first
+        const savedDate = localStorage.getItem(`ff_exam_date_${user.uid}`)
+        const savedName = localStorage.getItem(`ff_exam_name_${user.uid}`)
         if (savedDate) setExamDate(savedDate)
         if (savedName) setExamName(savedName)
 
-        // Load topics from tasks table
-        const { data } = await supabase
-          .from('tasks')
-          .select('*')
-          .eq('user_id', user)
-          .eq('due_date', 'syllabus')
-          .order('created_at', { ascending: true })
-        if (data) setTopics(data)
+        // Load topics from tasks table (syllabus)
+        const q = query(
+          collection(db, 'tasks'), 
+          where('user_id', '==', user.uid),
+          where('due_date', '==', 'syllabus'),
+          orderBy('created_at', 'asc')
+        )
+        const snap = await getDocs(q)
+        setTopics(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
 
         // Load exam name from profile as fallback
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('target_exam')
-          .eq('id', user)
-          .single()
-        if (profile?.target_exam && !savedName) setExamName(profile.target_exam)
+        const profileSnap = await getDoc(doc(db, 'profiles', user.uid))
+        if (profileSnap.exists()) {
+          const profileData = profileSnap.data()
+          if (profileData.target_exam && !savedName) setExamName(profileData.target_exam)
+        }
       } catch (err) {
         console.error('Error loading exam data:', err.message)
       }
     }
 
-    if (user) loadExamData()
-  }, [user])
+    loadExamData()
+  }, [user?.uid])
 
-  // Save exam date to localStorage whenever it changes
+  // Save to localStorage
   useEffect(() => {
-    if (examDate) localStorage.setItem(`ff_exam_date_${user?.id}`, examDate)
-  }, [examDate, user?.id])
+    if (examDate && user?.uid) localStorage.setItem(`ff_exam_date_${user.uid}`, examDate)
+  }, [examDate, user?.uid])
 
-  // Save exam name to localStorage whenever it changes
   useEffect(() => {
-    if (examName) localStorage.setItem(`ff_exam_name_${user?.id}`, examName)
-  }, [examName, user?.id])
+    if (examName && user?.uid) localStorage.setItem(`ff_exam_name_${user.uid}`, examName)
+  }, [examName, user?.uid])
 
-  // Real-time countdown tick
+  // Real-time countdown
   useEffect(() => {
     if (!examDate) return
     const tick = setInterval(() => {
@@ -81,24 +80,23 @@ const ExamPlannerPage = ({ onNavigate }) => {
   }, [examDate])
 
   const handleAddTopic = async () => {
-    if (!newTopic.trim()) return
+    if (!newTopic.trim() || !user?.uid) return
     setSaving(true)
-    
     try {
-      const { data, error } = await supabase.from('tasks').insert([{
-        user_id: user,
+      const payload = {
+        user_id: user.uid,
         title: newTopic.trim(),
         due_date: 'syllabus',
-        priority: newTopicSubject
-      }]).select().single()
-      
-      if (error) throw error
-      if (data) setTopics(prev => [...prev, data])
+        priority: newTopicSubject,
+        completed: false,
+        created_at: serverTimestamp()
+      }
+      const docRef = await addDoc(collection(db, 'tasks'), payload)
+      setTopics(prev => [...prev, { id: docRef.id, ...payload }])
       setNewTopic('')
       toast(`${newTopicSubject} topic added.`, 'success')
     } catch (err) {
       toast('Failed to add topic.', 'error')
-      console.error('Error adding topic:', err.message)
     } finally {
       setSaving(false)
     }
@@ -106,14 +104,22 @@ const ExamPlannerPage = ({ onNavigate }) => {
 
   const toggleTopic = async (id, current) => {
     setTopics(prev => prev.map(t => t.id === id ? { ...t, completed: !current } : t))
-    await supabase.from('tasks').update({ completed: !current }).eq('id', id)
-    if (!current) toast('Topic covered. Keep going!', 'success')
+    try {
+      await updateDoc(doc(db, 'tasks', id), { completed: !current })
+      if (!current) toast('Topic covered. Keep going!', 'success')
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const deleteTopic = async (id) => {
     setTopics(prev => prev.filter(t => t.id !== id))
-    await supabase.from('tasks').delete().eq('id', id)
-    toast('Topic removed.', 'info')
+    try {
+      await deleteDoc(doc(db, 'tasks', id))
+      toast('Topic removed.', 'info')
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const completedCount = topics.filter(t => t.completed).length
@@ -126,13 +132,13 @@ const ExamPlannerPage = ({ onNavigate }) => {
   return (
     <div className="canvas-layout">
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
             <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Exam Planner</h1>
           </div>
           <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">
-            ← Dashboard
+            ← {t('nav.dashboard')}
           </button>
         </div>
       </header>

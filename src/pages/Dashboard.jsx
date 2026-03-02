@@ -8,7 +8,6 @@ import NotificationBell from '../components/NotificationBell'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext'
 import { useTranslation } from '../contexts/LanguageContext'
-import { supabase } from '../lib/supabase'
 import OnboardingTour from '../components/OnboardingTour'
 import DangerZone from '../components/DangerZone'
 import MobileBottomNav from '../components/MobileBottomNav'
@@ -37,30 +36,43 @@ const Dashboard = ({ onNavigate }) => {
 
   // Calculate streak
   useEffect(() => {
-    if (!user) return
+    if (!user?.uid) return
     const calcStreak = async () => {
-      const { data } = await supabase
-        .from('sessions')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .eq('completed', true)
-        .order('created_at', { ascending: false })
-      if (!data || data.length === 0) return
+      try {
+        const q = query(
+          collection(db, 'sessions'),
+          where('user_id', '==', user.uid),
+          where('completed', '==', true),
+          orderBy('created_at', 'desc')
+        )
 
-      // Get unique dates
-      const dates = [...new Set(data.map(s => new Date(s.created_at).toDateString()))]
-      let count = 0
-      const today = new Date()
-      for (let i = 0; i < dates.length; i++) {
-        const expected = new Date(today)
-        expected.setDate(today.getDate() - i)
-        if (dates[i] === expected.toDateString()) count++
-        else break
+        const querySnapshot = await getDocs(q)
+        if (querySnapshot.empty) return
+
+        const data = querySnapshot.docs.map(doc => doc.data())
+
+        // Get unique dates
+        const dates = [...new Set(data.map(s => {
+          // Firebase timestamps might be objects or strings depending on how they were saved
+          const date = s.created_at?.toDate ? s.created_at.toDate() : new Date(s.created_at)
+          return date.toDateString()
+        }))]
+        
+        let count = 0
+        const today = new Date()
+        for (let i = 0; i < dates.length; i++) {
+          const expected = new Date(today)
+          expected.setDate(today.getDate() - i)
+          if (dates[i] === expected.toDateString()) count++
+          else break
+        }
+        setStreak(count)
+      } catch (err) {
+        console.warn('Streak calc failed:', err.message)
       }
-      setStreak(count)
     }
     calcStreak()
-  }, [user])
+  }, [user?.uid])
 
 
   return (
@@ -68,9 +80,9 @@ const Dashboard = ({ onNavigate }) => {
     <div className="canvas-layout">
       {/* Header */}
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-8">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div
-            className="logo-mark font-serif text-4xl text-primary"
+            className="logo-mark font-serif text-4xl text-primary flex-shrink-0"
             style={{ cursor: 'pointer' }}
             onClick={() => onNavigate('landing')}
           >
@@ -78,10 +90,10 @@ const Dashboard = ({ onNavigate }) => {
           </div>
           
           {/* Desktop Navigation - 3 Zone Layout */}
-          <div className="desktop-nav-container flex-grow flex justify-between items-end ml-12">
+          <div className="desktop-nav-container flex-grow flex justify-between items-center ml-8 min-w-0">
             
             {/* Center: Primary Navigation */}
-            <nav className="desktop-nav-main flex gap-6 items-center flex-grow justify-center">
+            <nav className="desktop-nav-main flex gap-4 xl:gap-8 items-center flex-grow justify-center min-w-0">
               <button onClick={() => onNavigate('analytics')} className="dash-nav-btn">{t('dashboard.analytics')}</button>
               <button onClick={() => onNavigate('rooms')} className="dash-nav-btn">{t('dashboard.studyRooms')}</button>
               <button onClick={() => onNavigate('calendar')} className="dash-nav-btn">{t('dashboard.calendar')}</button>
@@ -95,10 +107,10 @@ const Dashboard = ({ onNavigate }) => {
             </nav>
 
             {/* Right: Utilities & Account */}
-            <div className="desktop-nav-utilities flex gap-6 items-center justify-end">
-              <div className="flex items-center gap-4 border-r border-ink pr-6 mr-2">
-                <div className="uppercase tracking-widest text-[10px] font-bold font-serif italic text-muted">
-                  {t('dashboard.edition')} <span className="text-primary not-italic">{isPro ? t('dashboard.pro') : t('dashboard.free')}</span>
+            <div className="desktop-nav-utilities flex gap-4 items-center justify-end flex-shrink-0">
+              <div className="flex items-center gap-4 border-r border-ink pr-6">
+                <div className="uppercase tracking-[0.2em] text-[9px] font-bold text-muted">
+                  {isPro ? t('dashboard.pro') : t('dashboard.free')}
                 </div>
                 <NotificationBell />
               </div>

@@ -1,6 +1,5 @@
 import React, { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import './ResumeBuilderPage.css'
 
@@ -16,11 +15,11 @@ const defaultResume = {
 }
 
 const ResumeBuilderPage = ({ onNavigate }) => {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const toast = useToast()
   const [resume, setResume] = useState({
     ...defaultResume,
-    name: user?.user_metadata?.full_name || '',
+    name: profile?.full_name || '',
     email: user?.email || ''
   })
   const [activeSection, setActiveSection] = useState(null)
@@ -94,14 +93,14 @@ const ResumeBuilderPage = ({ onNavigate }) => {
   return (
     <div className={`canvas-layout ${printing ? 'print-mode' : ''}`}>
       <header className="canvas-header container no-print">
-        <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
             <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Resume Builder</h1>
           </div>
           <div className="flex gap-4 items-center">
             <button onClick={handlePrint} className="btn-primary">Export PDF</button>
-            <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">← Dashboard</button>
+            <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">← {t('nav.dashboard')}</button>
           </div>
         </div>
       </header>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext'
 import './CalendarPage.css'
@@ -25,25 +26,28 @@ const CalendarPage = ({ onNavigate }) => {
 
   // Load data
   useEffect(() => {
-    if (!user) return
+    if (!user?.uid) return
     const load = async () => {
-      const [sessRes, taskRes] = await Promise.all([
-        supabase.from('sessions').select('created_at, duration_seconds, completed')
-          .eq('user_id', user).eq('completed', true),
-        supabase.from('tasks').select('id, title, due_date, completed, created_at')
-          .eq('user_id', user),
-      ])
-      if (sessRes.data) setSessions(sessRes.data)
-      if (taskRes.data) setTasks(taskRes.data)
+      try {
+        const [sessSnap, taskSnap] = await Promise.all([
+          getDocs(query(collection(db, 'sessions'), where('user_id', '==', user.uid), where('completed', '==', true))),
+          getDocs(query(collection(db, 'tasks'), where('user_id', '==', user.uid)))
+        ])
+        
+        setSessions(sessSnap.docs.map(doc => doc.data()))
+        setTasks(taskSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })))
 
-      // Load exam date
-      const saved = localStorage.getItem(`ff_exam_date_${user}`)
-      const savedName = localStorage.getItem(`ff_exam_name_${user}`)
-      if (saved) setExamDate(new Date(saved))
-      if (savedName) setExamName(savedName)
+        // Load exam date
+        const saved = localStorage.getItem(`ff_exam_date_${user.uid}`)
+        const savedName = localStorage.getItem(`ff_exam_name_${user.uid}`)
+        if (saved) setExamDate(new Date(saved))
+        if (savedName) setExamName(savedName)
+      } catch (err) {
+        console.error('Calendar Load Error:', err)
+      }
     }
     load()
-  }, [user])
+  }, [user?.uid])
 
   // Build day data map
   const dayData = useMemo(() => {
@@ -125,12 +129,10 @@ const CalendarPage = ({ onNavigate }) => {
   return (
     <div className="canvas-layout">
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
-            <button onClick={() => onNavigate('dashboard')} className="text-xs uppercase tracking-widest text-muted hover:text-primary transition-colors cursor-pointer">
-              ← Dashboard
-            </button>
-            <h1 className="text-4xl font-serif">The Calendar.</h1>
+            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
+            <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Calendar</h1>
           </div>
           <div className="flex items-center gap-4">
             {isPro && (

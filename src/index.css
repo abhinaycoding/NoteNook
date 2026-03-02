@@ -673,6 +673,9 @@ button {
 .gap-12 { gap: 3rem; }
 .w-full { width: 100%; }
 .h-full { height: 100%; }
+.flex-grow { flex-grow: 1; }
+.flex-shrink-0 { flex-shrink: 0; }
+.min-w-0 { min-width: 0; }
 
 .text-left { text-align: left; }
 .text-center { text-align: center; }

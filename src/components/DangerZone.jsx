@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
 import '../pages/Dashboard.css' // uses ledger styles
@@ -10,54 +11,55 @@ const DangerZone = () => {
   const [urgentTasks, setUrgentTasks] = useState([])
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.uid) return
 
     const fetchUrgent = async () => {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('completed', false)
+      try {
+        const q = query(
+          collection(db, 'tasks'), 
+          where('user_id', '==', user.uid),
+          where('completed', '==', false)
+        )
+        const snap = await getDocs(q)
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
 
-      if (error || !data) return
+        // Filter: priority === 'urgent' OR deadline within 48 hours
+        const now = new Date()
+        const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000)
 
-      // Filter: priority === 'urgent' OR deadline within 48 hours
-      const now = new Date()
-      const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+        const dangerous = data.filter(t => {
+          if (t.priority === 'urgent') return true
+          if (t.deadline_at) {
+            const deadline = new Date(t.deadline_at)
+            return deadline <= in48Hours
+          }
+          return false
+        })
 
-      const dangerous = data.filter(t => {
-        if (t.priority === 'urgent') return true
-        if (t.deadline_at) {
-          const deadline = new Date(t.deadline_at)
-          return deadline <= in48Hours
-        }
-        return false
-      })
+        // Sort by urgency
+        dangerous.sort((a, b) => {
+          if (a.priority === 'urgent' && b.priority !== 'urgent') return -1
+          if (b.priority === 'urgent' && a.priority !== 'urgent') return 1
+          if (a.deadline_at && b.deadline_at) {
+            return new Date(a.deadline_at) - new Date(b.deadline_at)
+          }
+          if (a.deadline_at) return -1
+          if (b.deadline_at) return 1
+          return 0
+        })
 
-      // Sort by easiest to nearest deadline
-      dangerous.sort((a, b) => {
-        // urgent always first
-        if (a.priority === 'urgent' && b.priority !== 'urgent') return -1
-        if (b.priority === 'urgent' && a.priority !== 'urgent') return 1
-        // then by deadline (earliest first)
-        if (a.deadline_at && b.deadline_at) {
-          return new Date(a.deadline_at) - new Date(b.deadline_at)
-        }
-        if (a.deadline_at) return -1
-        if (b.deadline_at) return 1
-        return 0
-      })
-
-      setUrgentTasks(dangerous)
+        setUrgentTasks(dangerous)
+      } catch (err) {
+        console.error('DangerZone fetch error:', err)
+      }
     }
 
     fetchUrgent()
     
-    // Refresh randomly or polling isn't great, relying on interval (every 1 min)
     const interval = setInterval(fetchUrgent, 60000)
 
     const handleTaskUpdated = (e) => {
-      const { id, completed, deleted, added, updated } = e.detail || {}
+      const { id, completed, deleted } = e.detail || {}
       if (completed || deleted) {
         setUrgentTasks(prev => prev.filter(t => t.id !== id))
       } else {
@@ -65,8 +67,6 @@ const DangerZone = () => {
       }
     }
     window.addEventListener('task-updated', handleTaskUpdated)
-    
-    // Legacy support in case it was used elsewhere
     window.addEventListener('task-completed', fetchUrgent)
 
     return () => {
@@ -74,7 +74,7 @@ const DangerZone = () => {
       window.removeEventListener('task-updated', handleTaskUpdated)
       window.removeEventListener('task-completed', fetchUrgent)
     }
-  }, [user])
+  }, [user?.uid])
 
   const completeTask = async (id) => {
     // Optimistic update
@@ -82,16 +82,13 @@ const DangerZone = () => {
     setUrgentTasks(prev => prev.filter(t => t.id !== id))
     window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: true } }))
 
-    // Update supabase
-    const { error } = await supabase.from('tasks').update({ completed: true }).eq('id', id)
-    
-    if (error && taskBackup) {
-      // Proper rollback: restore the task back into the list
-      setUrgentTasks(prev => {
-        const alreadyPresent = prev.some(t => t.id === taskBackup.id)
-        return alreadyPresent ? prev : [taskBackup, ...prev]
-      })
-      window.dispatchEvent(new CustomEvent('task-updated', { detail: { id: taskBackup.id, completed: false } }))
+    try {
+      await updateDoc(doc(db, 'tasks', id), { completed: true })
+    } catch (err) {
+      if (taskBackup) {
+        setUrgentTasks(prev => [taskBackup, ...prev])
+        window.dispatchEvent(new CustomEvent('task-updated', { detail: { id: taskBackup.id, completed: false } }))
+      }
     }
   }
 

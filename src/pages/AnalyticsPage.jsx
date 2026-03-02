@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
 import {
@@ -18,12 +19,12 @@ const AnalyticsPage = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (user) fetchAnalytics()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+    if (user?.uid) fetchAnalytics()
+  }, [user?.uid])
 
   const fetchAnalytics = async () => {
     try {
+      setLoading(true)
       // Build last 7 days labels
       const days = []
       for (let i = 6; i >= 0; i--) {
@@ -41,14 +42,16 @@ const AnalyticsPage = ({ onNavigate }) => {
       sevenAgo.setDate(sevenAgo.getDate() - 6)
       sevenAgo.setHours(0, 0, 0, 0)
 
-      const { data: sessions } = await supabase
-        .from('sessions')
-        .select('duration_seconds, created_at')
-        .eq('user_id', user)
-        .gte('created_at', sevenAgo.toISOString())
+      const qRecent = query(
+        collection(db, 'sessions'), 
+        where('user_id', '==', user.uid),
+        where('created_at', '>=', sevenAgo.toISOString())
+      )
+      const recentSnap = await getDocs(qRecent)
+      const recentSessions = recentSnap.docs.map(doc => doc.data())
 
       // Map sessions to days
-      ;(sessions || []).forEach(s => {
+      recentSessions.forEach(s => {
         const sessionDate = s.created_at.split('T')[0]
         const day = days.find(d => d.date === sessionDate)
         if (day) day.hours += parseFloat((s.duration_seconds / 3600).toFixed(2))
@@ -59,25 +62,27 @@ const AnalyticsPage = ({ onNavigate }) => {
       setWeeklyData(formatted)
 
       // Total hours all time
-      const { data: allSessions } = await supabase
-        .from('sessions').select('duration_seconds').eq('user_id', user)
-      const total = (allSessions || []).reduce((a, s) => a + s.duration_seconds, 0)
+      const qAll = query(collection(db, 'sessions'), where('user_id', '==', user.uid))
+      const allSnap = await getDocs(qAll)
+      const allSessions = allSnap.docs.map(doc => doc.data())
+      const total = allSessions.reduce((a, s) => a + (s.duration_seconds || 0), 0)
       setTotalHours((total / 3600).toFixed(1))
 
       // Task stats
-      const { data: tasks } = await supabase
-        .from('tasks').select('completed').eq('user_id', user)
-      const completed = (tasks || []).filter(t => t.completed).length
-      setTaskStats({ completed, pending: (tasks || []).length - completed, total: (tasks || []).length })
+      const qTasks = query(collection(db, 'tasks'), where('user_id', '==', user.uid))
+      const tasksSnap = await getDocs(qTasks)
+      const allTasks = tasksSnap.docs.map(doc => doc.data())
+      const completed = allTasks.filter(t => t.completed).length
+      setTaskStats({ completed, pending: allTasks.length - completed, total: allTasks.length })
 
-      // Streak: count consecutive days with sessions ending today
+      // Streak calculation
       let streak = 0
       const today = new Date()
       for (let i = 0; i < 30; i++) {
         const check = new Date(today)
         check.setDate(check.getDate() - i)
         const dateStr = check.toISOString().split('T')[0]
-        const hasSession = (sessions || []).some(s => s.created_at.split('T')[0] === dateStr)
+        const hasSession = allSessions.some(s => s.created_at?.split('T')[0] === dateStr)
         if (hasSession) streak++
         else break
       }
@@ -97,13 +102,13 @@ const AnalyticsPage = ({ onNavigate }) => {
   return (
     <div className="canvas-layout">
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
             <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Analytics</h1>
           </div>
           <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">
-            ← Dashboard
+            ← {t('nav.dashboard')}
           </button>
         </div>
       </header>

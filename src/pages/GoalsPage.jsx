@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 
 import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
 import { useToast } from '../contexts/ToastContext'
 import { usePlan } from '../contexts/PlanContext'
 import { useNotifications } from '../contexts/NotificationContext'
@@ -10,8 +9,11 @@ import ProGate from '../components/ProGate'
 import Confetti from '../components/Confetti'
 import './GoalsPage.css'
 
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, serverTimestamp } from 'firebase/firestore'
+
 const GoalsPage = ({ onNavigate }) => {
-  const { user, session } = useAuth()
+  const { user } = useAuth()
   const { isPro } = usePlan()
   const toast = useToast()
   const { addNotification } = useNotifications()
@@ -26,50 +28,38 @@ const GoalsPage = ({ onNavigate }) => {
   const [celebrate, setCelebrate] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  const BADGES = [
-    { id: 'first_session', icon: '🎯', label: t('goals.badges.firstSession.label'), desc: t('goals.badges.firstSession.desc'), check: (s) => s >= 1 },
-    { id: 'five_sessions', icon: '🔥', label: t('goals.badges.fiveSessions.label'), desc: t('goals.badges.fiveSessions.desc'), check: (s) => s >= 5 },
-    { id: 'ten_tasks', icon: '📋', label: t('goals.badges.tenTasks.label'), desc: t('goals.badges.tenTasks.desc'), check: (s, tk) => tk >= 10 },
-    { id: 'ten_hours', icon: '⏰', label: t('goals.badges.tenHours.label'), desc: t('goals.badges.tenHours.desc'), check: (s, tk, h) => h >= 10 },
-    { id: 'twenty_five_hours', icon: '🏆', label: t('goals.badges.twentyFiveHours.label'), desc: t('goals.badges.twentyFiveHours.desc'), check: (s, tk, h) => h >= 25 },
-    { id: 'fifty_tasks', icon: '⭐', label: t('goals.badges.fiftyTasks.label'), desc: t('goals.badges.fiftyTasks.desc'), check: (s, tk) => tk >= 50 },
-  ]
-
   useEffect(() => {
     let isMounted = true
 
     const loadData = async () => {
-      if (!user || !session) return
+      if (!user?.uid) return
       
       try {
-        const url = import.meta.env.VITE_SUPABASE_URL
-        const key = import.meta.env.VITE_SUPABASE_ANON_KEY
-        
-        const headers = {
-          'apikey': key,
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        }
-        
-        const tasksRes = await fetch(`${url}/rest/v1/tasks?user_id=eq.${user}&select=*&order=created_at.asc`, { headers })
-        if (!tasksRes.ok) throw new Error(`Tasks HTTP error! status: ${tasksRes.status}`)
-        const allTasks = await tasksRes.json()
+        setLoading(true)
+        // Load Goals (Tasks with due_date == 'goal')
+        const qTasks = query(
+          collection(db, 'tasks'), 
+          where('user_id', '==', user.uid),
+          orderBy('created_at', 'asc')
+        )
+        const tasksSnap = await getDocs(qTasks)
+        const allTasks = tasksSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
         
         if (isMounted) {
-          const goalsData = (allTasks || []).filter(t => t.due_date === 'goal')
+          const goalsData = allTasks.filter(t => t.due_date === 'goal')
           setGoals(goalsData)
         }
         
-        const sessionsRes = await fetch(`${url}/rest/v1/sessions?user_id=eq.${user}&select=duration_seconds`, { headers })
-        if (!sessionsRes.ok) throw new Error(`Sessions HTTP error! status: ${sessionsRes.status}`)
-        const sessionsData = await sessionsRes.json()
+        // Load Sessions
+        const qSessions = query(collection(db, 'sessions'), where('user_id', '==', user.uid))
+        const sessionsSnap = await getDocs(qSessions)
+        const sessionsData = sessionsSnap.docs.map(doc => doc.data())
 
         if (isMounted) {
-          const completedTasks = (allTasks || []).filter(t => t.completed === true)
-          const hours = (sessionsData || []).reduce((a, s) => a + (s.duration_seconds || 0), 0) / 3600
+          const completedTasks = allTasks.filter(t => t.completed === true)
+          const hours = sessionsData.reduce((a, s) => a + (s.duration_seconds || 0), 0) / 3600
           setStats({ 
-            sessions: (sessionsData || []).length, 
+            sessions: sessionsData.length, 
             tasks: completedTasks.length, 
             hours 
           })
@@ -85,50 +75,26 @@ const GoalsPage = ({ onNavigate }) => {
       }
     }
 
-    // 100ms delay helps bypass the StrictMode immediate double-unmount race condition
-    const timer = setTimeout(() => {
-      loadData()
-    }, 100)
+    loadData()
 
-    return () => {
-      isMounted = false
-      clearTimeout(timer)
-    }
-  }, [user, session])
-
-  const getDirectHeaders = () => {
-    return {
-      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${session.access_token}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    }
-  }
+    return () => { isMounted = false }
+  }, [user?.uid])
 
   const addGoal = async () => {
-    if (!newGoal.trim() || !session) return
+    if (!newGoal.trim() || !user?.uid) return
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/tasks`
       const payload = {
-        user_id: user,
+        user_id: user.uid,
         title: newGoal.trim(),
         due_date: 'goal',
         priority: newTarget || '0',
-        completed: false
+        completed: false,
+        created_at: serverTimestamp()
       }
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: getDirectHeaders(),
-        body: JSON.stringify(payload)
-      })
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const docRef = await addDoc(collection(db, 'tasks'), payload)
+      setGoals(prev => [...prev, { id: docRef.id, ...payload }])
       
-      const inserted = await res.json()
-      if (inserted && inserted.length > 0) {
-        setGoals(prev => [...prev, inserted[0]])
-      }
       setNewGoal('')
       setNewTarget('')
       toast(t('goals.goalAdded'), 'success')
@@ -138,12 +104,11 @@ const GoalsPage = ({ onNavigate }) => {
     }
   }
 
-  // Track previously unlocked badges to trigger notifications on new ones
+  // Track previously unlocked badges
   const unlockedBadges = useMemo(() => BADGES.filter(b => b.check(stats.sessions, stats.tasks, stats.hours)), [stats.sessions, stats.tasks, stats.hours])
   const prevBadgesCount = useRef(0)
 
   useEffect(() => {
-    // Only fire notifications if we've already loaded and the count actually increased
     if (!loading && unlockedBadges.length > prevBadgesCount.current && prevBadgesCount.current > 0) {
       const newBadges = unlockedBadges.slice(prevBadgesCount.current)
       newBadges.forEach(badge => {
@@ -158,20 +123,11 @@ const GoalsPage = ({ onNavigate }) => {
   }, [unlockedBadges.length, loading, addNotification, unlockedBadges])
 
   const toggleGoal = async (id, current) => {
-    if (!session) return
+    if (!user?.uid) return
     setGoals(prev => prev.map(g => g.id === id ? { ...g, completed: !current } : g))
     
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/tasks?id=eq.${id}`
-      const headers = getDirectHeaders()
-      // For PATCH, we must omit the return=representation prefer header or use return=minimal
-      headers['Prefer'] = 'return=minimal'
-
-      await fetch(url, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ completed: !current })
-      })
+      await updateDoc(doc(db, 'tasks', id), { completed: !current })
       if (!current) {
         toast(t('goals.goalAchieved'), 'success')
         addNotification(t('goals.goalAchieved'), t('goals.goalAchievedNotif'), 'success')
@@ -184,15 +140,10 @@ const GoalsPage = ({ onNavigate }) => {
   }
 
   const deleteGoal = async (id) => {
-    if (!session) return
+    if (!user?.uid) return
     setGoals(prev => prev.filter(g => g.id !== id))
-    
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/tasks?id=eq.${id}`
-      await fetch(url, {
-        method: 'DELETE',
-        headers: getDirectHeaders()
-      })
+      await deleteDoc(doc(db, 'tasks', id))
       toast(t('goals.goalRemoved'), 'info')
     } catch (err) {
       console.error(err)
@@ -205,7 +156,7 @@ const GoalsPage = ({ onNavigate }) => {
     <div className="canvas-layout">
       <Confetti active={celebrate} />
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
             <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>{t('goals.pageTitle')}</h1>

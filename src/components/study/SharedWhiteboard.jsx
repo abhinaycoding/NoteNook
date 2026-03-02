@@ -1,17 +1,18 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { db } from '../../lib/firebase'
+import { collection, addDoc, onSnapshot, query, where, orderBy, serverTimestamp, limit } from 'firebase/firestore'
 
-const SharedWhiteboard = ({ channel, user, onClose }) => {
+const SharedWhiteboard = ({ roomId, user, onClose }) => {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
   const isDrawing = useRef(false)
   const ctxRef = useRef(null)
 
-  const [color, setColor] = useState('#10B981') // Default primary green
+  const [color, setColor] = useState('#10B981') 
   const [lineWidth, setLineWidth] = useState(3)
   const [isEraser, setIsEraser] = useState(false)
 
   // ── Custom Drag Logic for Toolbar ────────────────────────────────────────
-  // Start with a safe default, will refine in useEffect after mount
   const [toolbarPos, setToolbarPos] = useState({ x: 0, y: 0 })
   const isDraggingToolbar = useRef(false)
   const dragOffset = useRef({ x: 0, y: 0 })
@@ -28,12 +29,11 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
   }, [])
 
   const handleDragStart = (e) => {
-    e.stopPropagation() // Prevent drawing a dot on the canvas behind the dock
+    e.stopPropagation()
     isDraggingToolbar.current = true
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     
-    // Store the exact pixel offset between the mouse click and the dock's top-left
     dragOffset.current = {
       x: clientX - toolbarPos.x,
       y: clientY - toolbarPos.y
@@ -43,20 +43,13 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
   const handleDrag = useCallback((e) => {
     if (!isDraggingToolbar.current || !containerRef.current) return
     e.preventDefault() 
-    e.stopPropagation() 
-
     const rect = containerRef.current.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
-    
-    // Map viewport coordinates to container-relative coordinates
     let newX = (clientX - rect.left) - dragOffset.current.x
     let newY = (clientY - rect.top) - dragOffset.current.y
-    
-    // Smooth bounding box relative to container
     newX = Math.max(10, Math.min(newX, rect.width - 55))
-    newY = Math.max(10, Math.min(newY, rect.height - Math.min(490, rect.height - 20)))
-    
+    newY = Math.max(10, Math.min(newY, rect.height - 480))
     setToolbarPos({ x: newX, y: newY })
   }, [])
 
@@ -84,22 +77,15 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
     if (!canvas || !container) return
 
     const resizeCanvas = () => {
-      // Get the actual display size of the container
       const { width, height } = container.getBoundingClientRect()
-      
-      // Set the internal pixel ratio for crisp lines on high DPI screens
       const ratio = window.devicePixelRatio || 1
       canvas.width = width * ratio
       canvas.height = height * ratio
-      
-      // Scale the context to match the CSS size
       const ctx = canvas.getContext('2d')
       ctx.scale(ratio, ratio)
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
       ctxRef.current = ctx
-      
-      // Restore previous lines here if we add persistent state later
     }
 
     resizeCanvas()
@@ -107,35 +93,52 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
     return () => window.removeEventListener('resize', resizeCanvas)
   }, [])
 
-  // ── Listen for Incoming Broadcasts ───────────────────────────────────────
+  const drawLine = ({ x0, y0, x1, y1, color: strokeColor, width }) => {
+    const ctx = ctxRef.current
+    if (!ctx) return
+    ctx.beginPath()
+    ctx.moveTo(x0, y0)
+    ctx.lineTo(x1, y1)
+    ctx.strokeStyle = strokeColor
+    ctx.lineWidth = width
+    ctx.stroke()
+    ctx.closePath()
+  }
+
+  // ── Listen for Incoming Broadcasts (via Firestore) ────────────────────────
   useEffect(() => {
-    if (!channel || !ctxRef.current) return
+    if (!roomId) return
 
-    const drawLine = ({ x0, y0, x1, y1, color: strokeColor, width }) => {
-      const ctx = ctxRef.current
-      if (!ctx) return
-      
-      ctx.beginPath()
-      ctx.moveTo(x0, y0)
-      ctx.lineTo(x1, y1)
-      ctx.strokeStyle = strokeColor
-      ctx.lineWidth = width
-      ctx.stroke()
-      ctx.closePath()
-    }
+    const q = query(
+      collection(db, 'room_whiteboard'),
+      where('room_id', '==', roomId),
+      where('created_at', '>', new Date(Date.now() - 30000)), // Limit to recent strokes
+      orderBy('created_at', 'asc'),
+      limit(200)
+    )
 
-    channel.on('broadcast', { event: 'draw' }, (payload) => {
-      // Ignore our own echoes if any
-      if (payload.payload.user_id === user?.id) return
-      drawLine(payload.payload)
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const data = change.doc.data()
+          if (data.user_id !== user?.uid) {
+            if (data.type === 'draw') drawLine(data)
+            if (data.type === 'clear') {
+              const canvas = canvasRef.current
+              if (canvas && ctxRef.current) ctxRef.current.clearRect(0, 0, canvas.width, canvas.height)
+            }
+          }
+        }
+      })
     })
-  }, [channel, user?.id])
+
+    return () => unsubscribe()
+  }, [roomId, user?.uid])
 
   // ── Drawing Handlers ─────────────────────────────────────────────────────
   const getCoordinates = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
-    // Handle both mouse and touch events
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const clientY = e.touches ? e.touches[0].clientY : e.clientY
     
@@ -148,24 +151,20 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
   const startDrawing = (e) => {
     const { x, y } = getCoordinates(e)
     isDrawing.current = true
-    
-    // We just want to setup the start point, maybe draw a dot later
     const ctx = ctxRef.current
     ctx.beginPath()
     ctx.moveTo(x, y)
   }
 
-  const draw = (e) => {
-    if (!isDrawing.current || !ctxRef.current) return
+  const draw = async (e) => {
+    if (!isDrawing.current || !ctxRef.current || !roomId || !user?.uid) return
 
     const { x, y } = getCoordinates(e)
     const ctx = ctxRef.current
-    
-    // Remember where we started this stroke segment for broadcasting
     const startX = ctx.canvas.lastX || x
     const startY = ctx.canvas.lastY || y
 
-    const currentColor = isEraser ? '#FFFFFF' : color // Assuming white background for eraser
+    const currentColor = isEraser ? '#FFFFFF' : color 
     const currentWidth = isEraser ? 20 : lineWidth
 
     ctx.lineTo(x, y)
@@ -173,22 +172,19 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
     ctx.lineWidth = currentWidth
     ctx.stroke()
 
-    // Broadcast the segment to the room
-    if (channel) {
-      channel.send({
-        type: 'broadcast',
-        event: 'draw',
-        payload: {
-          user_id: user?.id,
-          x0: startX,
-          y0: startY,
-          x1: x,
-          y1: y,
-          color: currentColor,
-          width: currentWidth
-        }
-      })
-    }
+    // Broadcast the segment via Firestore
+    await addDoc(collection(db, 'room_whiteboard'), {
+      room_id: roomId,
+      user_id: user.uid,
+      type: 'draw',
+      x0: startX,
+      y0: startY,
+      x1: x,
+      y1: y,
+      color: currentColor,
+      width: currentWidth,
+      created_at: serverTimestamp()
+    })
 
     ctx.canvas.lastX = x
     ctx.canvas.lastY = y
@@ -200,39 +196,25 @@ const SharedWhiteboard = ({ channel, user, onClose }) => {
     const ctx = ctxRef.current
     if (ctx) {
       ctx.closePath()
-      // Wipe the tracked last position so the next stroke starts fresh
       ctx.canvas.lastX = undefined 
       ctx.canvas.lastY = undefined
     }
   }
 
-  const clearBoard = () => {
+  const clearBoard = async () => {
     const canvas = canvasRef.current
     const ctx = ctxRef.current
-    if (!canvas || !ctx) return
+    if (!canvas || !ctx || !roomId || !user?.uid) return
     
-    // Clear locally
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     
-    // Tell room to clear
-    if (channel) {
-      channel.send({
-        type: 'broadcast',
-        event: 'clear_board'
-      })
-    }
-  }
-
-  // Handle incoming clears
-  useEffect(() => {
-    if (!channel || !ctxRef.current) return
-    channel.on('broadcast', { event: 'clear_board' }, () => {
-       const canvas = canvasRef.current
-       if (canvas && ctxRef.current) {
-         ctxRef.current.clearRect(0, 0, canvas.width, canvas.height)
-       }
+    await addDoc(collection(db, 'room_whiteboard'), {
+      room_id: roomId,
+      user_id: user.uid,
+      type: 'clear',
+      created_at: serverTimestamp()
     })
-  }, [channel])
+  }
 
 
   // A curated palette of premium colors

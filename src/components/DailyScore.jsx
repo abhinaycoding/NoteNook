@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import './DailyScore.css'
 
@@ -9,48 +10,48 @@ const DailyScore = () => {
   const [breakdown, setBreakdown] = useState({ focus: 0, tasks: 0, streak: 0 })
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.uid) return
 
     const computeScore = async () => {
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      try {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
 
-      // Fetch today's sessions
-      const { data: sessions } = await supabase
-        .from('sessions')
-        .select('duration_seconds')
-        .eq('user_id', user)
-        .gte('created_at', today.toISOString())
+        // Fetch today's sessions and all tasks
+        const [sessSnap, taskSnap] = await Promise.all([
+          getDocs(query(collection(db, 'sessions'), where('user_id', '==', user.uid), where('created_at', '>=', today.toISOString()))),
+          getDocs(query(collection(db, 'tasks'), where('user_id', '==', user.uid)))
+        ])
 
-      // Fetch today's completed tasks
-      const { data: tasks } = await supabase
-        .from('tasks')
-        .select('id, completed')
-        .eq('user_id', user)
+        const sessions = sessSnap.docs.map(doc => doc.data())
+        const tasks = taskSnap.docs.map(doc => doc.data())
 
-      const totalFocusMin = (sessions || []).reduce((sum, s) => sum + s.duration_seconds, 0) / 60
-      const completedTasks = (tasks || []).filter(t => t.completed).length
-      const totalTasks = (tasks || []).length
+        const totalFocusMin = sessions.reduce((sum, s) => sum + (s.duration_seconds || 0), 0) / 60
+        const completedTasks = tasks.filter(t => t.completed).length
+        const totalTasks = tasks.length
 
-      // Score: 40% focus (up to 120min = max), 40% tasks, 20% consistency
-      const focusScore = Math.min(totalFocusMin / 120, 1) * 40
-      const taskScore = totalTasks > 0 ? (completedTasks / totalTasks) * 40 : 0
-      const streakBonus = totalFocusMin > 0 ? 20 : 0
+        // Score: 40% focus (up to 120min = max), 40% tasks, 20% consistency
+        const focusScore = Math.min(totalFocusMin / 120, 1) * 40
+        const taskScore = totalTasks > 0 ? (completedTasks / totalTasks) * 40 : 0
+        const streakBonus = totalFocusMin > 0 ? 20 : 0
 
-      const total = Math.round(focusScore + taskScore + streakBonus)
-      setScore(total)
-      setBreakdown({
-        focus: Math.round(focusScore),
-        tasks: Math.round(taskScore),
-        streak: Math.round(streakBonus),
-      })
+        const total = Math.round(focusScore + taskScore + streakBonus)
+        setScore(total)
+        setBreakdown({
+          focus: Math.round(focusScore),
+          tasks: Math.round(taskScore),
+          streak: Math.round(streakBonus),
+        })
+      } catch (err) {
+        console.error('Score calculation error:', err)
+      }
     }
 
     computeScore()
     // Refresh every 60s
     const interval = setInterval(computeScore, 60000)
     return () => clearInterval(interval)
-  }, [user])
+  }, [user?.uid])
 
   const grade = useMemo(() => {
     if (score === null) return { label: '...', color: '#888' }

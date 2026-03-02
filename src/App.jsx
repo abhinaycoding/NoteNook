@@ -21,30 +21,29 @@ import { useTheme } from './contexts/ThemeContext'
 import { useTranslation } from './contexts/LanguageContext'
 import './App.css'
 
-/**
- * ProtectedRoute — defined OUTSIDE App so it's a stable component reference
- * and doesn't remount every time App re-renders.
- */
-const ProtectedRoute = ({ user, profile, currentPage, onRedirect, children }) => {
+const ProtectedRoute = ({ user, profile, profileReady, currentPage, onRedirect, children }) => {
   useEffect(() => {
     if (!user) {
       onRedirect('auth')
-    } else if (user && !profile && currentPage !== 'setup') {
+      return
+    }
+
+    if (profileReady && !profile && currentPage !== 'setup') {
       onRedirect('setup')
     }
-  }, [user, profile, currentPage, onRedirect])
+  }, [user, profile, profileReady, currentPage, onRedirect])
 
   if (!user) return null
-  if (user && !profile && currentPage !== 'setup') return null
+  if (!profileReady) return null
+  if (!profile && currentPage !== 'setup') return null
   return children
 }
-
 
 function App() {
   const [currentPage, setCurrentPage] = useState('landing')
   const [activeRoomId, setActiveRoomId] = useState(null)
   const [activeRoomName, setActiveRoomName] = useState('')
-  const { user, profile, loading: authLoading } = useAuth()
+  const { user, profile, profileReady, loading: authLoading } = useAuth()
   const { isDark, toggle, theme, setThemeById, themes } = useTheme()
   const { language, setLanguage, languages } = useTranslation()
   const [themePanelOpen, setThemePanelOpen] = useState(false)
@@ -60,26 +59,6 @@ function App() {
     setCurrentPage(page)
   }
 
-  // ── OAuth Redirect Handler ─────────────────────────────────────────────────
-  // After Google OAuth completes, Supabase fires onAuthStateChange which sets
-  // `user`. At that point currentPage is 'auth', so we need to push the user 
-  // forward to the right destination. We ONLY do this from the 'auth' page
-  // so we don't aggressively redirect users who just visit the landing page.
-  useEffect(() => {
-    // Wait until auth is fully resolved (including fetching the profile)
-    if (authLoading || !user) return
-    
-    // Only auto-redirect if they are actively on the Auth page (e.g. returning from Google)
-    if (currentPage === 'auth') {
-      // New Google users have no profile yet → send to setup
-      // Returning users have a profile → send to dashboard
-      navigateTo(profile ? 'dashboard' : 'setup')
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, profile, authLoading, currentPage])
-
-
-  // Global loading state while AuthContext resolves session
   if (authLoading) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-color, #0a0a0a)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -88,11 +67,14 @@ function App() {
     )
   }
 
+  const pageToRender = currentPage === 'auth' && user && profileReady
+    ? (profile ? 'dashboard' : 'setup')
+    : currentPage
+
   return (
     <>
       <CustomCursor />
 
-      {/* Floating theme picker */}
       <div className="theme-picker-wrap">
         <button
           className="theme-toggle"
@@ -100,14 +82,14 @@ function App() {
           title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label="Toggle theme"
         >
-          {themes.find(t => t.id === theme)?.icon || '☽'}
+          {themes.find(t => t.id === theme)?.icon || 'Theme'}
         </button>
         <button
           className="theme-expand-btn"
           onClick={() => setThemePanelOpen(!themePanelOpen)}
           aria-label="Theme options"
         >
-          {themePanelOpen ? '✕' : '▲'}
+          {themePanelOpen ? 'Close' : 'Menu'}
         </button>
         {themePanelOpen && (
           <div className="theme-panel">
@@ -126,7 +108,6 @@ function App() {
         )}
       </div>
 
-      {/* Floating language picker */}
       <div className="lang-picker-wrap">
         <button
           className="lang-toggle"
@@ -134,7 +115,7 @@ function App() {
           title="Change Language"
           aria-label="Change language"
         >
-          🌐
+          Lang
         </button>
         {langPanelOpen && (
           <div className="lang-panel">
@@ -152,49 +133,49 @@ function App() {
         )}
       </div>
 
-      <div key={currentPage} className="page-transition">
-        {currentPage === 'landing' && <LandingPage onNavigate={navigateTo} />}
-        {currentPage === 'auth' && <AuthPage onNavigate={navigateTo} />}
-        
-        {currentPage === 'setup' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+      <div key={pageToRender} className="page-transition">
+        {pageToRender === 'landing' && <LandingPage onNavigate={navigateTo} />}
+        {pageToRender === 'auth' && <AuthPage onNavigate={navigateTo} />}
+
+        {pageToRender === 'setup' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <ProfileSetup onNavigate={navigateTo} />
           </ProtectedRoute>
         )}
-        
-        {currentPage === 'dashboard' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+
+        {pageToRender === 'dashboard' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <Dashboard onNavigate={navigateTo} />
           </ProtectedRoute>
         )}
-        {currentPage === 'library' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'library' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <LibraryPage onNavigate={navigateTo} />
           </ProtectedRoute>
         )}
-        {currentPage === 'analytics' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'analytics' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <AnalyticsPage onNavigate={navigateTo} />
           </ProtectedRoute>
         )}
-        {currentPage === 'goals' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'goals' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <GoalsPage onNavigate={navigateTo} />
           </ProtectedRoute>
         )}
-        {currentPage === 'pricing' && <PricingPage onNavigate={navigateTo} />}
-        {currentPage === 'calendar' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'pricing' && <PricingPage onNavigate={navigateTo} />}
+        {pageToRender === 'calendar' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <CalendarPage onNavigate={navigateTo} />
           </ProtectedRoute>
         )}
-        {currentPage === 'rooms' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'rooms' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <StudyRoomsListPage onNavigate={navigateTo} onEnterRoom={enterRoom} />
           </ProtectedRoute>
         )}
-        {currentPage === 'room' && activeRoomId && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'room' && activeRoomId && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <StudyRoomPage
               roomId={activeRoomId}
               roomName={activeRoomName}
@@ -204,16 +185,15 @@ function App() {
           </ProtectedRoute>
         )}
 
-        {/* Pro-gated pages */}
-        {currentPage === 'exams' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'exams' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <ProGate feature="Exam Planner" onNavigatePricing={navigateTo}>
               <ExamPlannerPage onNavigate={navigateTo} />
             </ProGate>
           </ProtectedRoute>
         )}
-        {currentPage === 'resume' && (
-          <ProtectedRoute user={user} profile={profile} currentPage={currentPage} onRedirect={navigateTo}>
+        {pageToRender === 'resume' && (
+          <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <ProGate feature="Resume Builder" onNavigatePricing={navigateTo}>
               <ResumeBuilderPage onNavigate={navigateTo} />
             </ProGate>
@@ -221,10 +201,8 @@ function App() {
         )}
       </div>
 
-      {/* Global Cinematic Overlay */}
       <ZenMode />
 
-      {/* Command Palette (Ctrl+K) */}
       <CommandPalette
         onNavigate={navigateTo}
         onAction={(action) => {

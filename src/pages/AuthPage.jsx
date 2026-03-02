@@ -1,5 +1,12 @@
 import React, { useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { auth } from '../lib/firebase'
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth'
 import Navigation from '../components/Navigation'
 import './AuthPage.css'
 
@@ -16,19 +23,9 @@ const AuthPage = ({ onNavigate }) => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          // Works on localhost AND production automatically
-          redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      })
-      if (error) throw error
-      // Page will redirect to Google — no further action needed
+      const provider = new GoogleAuthProvider()
+      await signInWithPopup(auth, provider)
+      // Success is handled by onAuthStateChanged in AuthContext
     } catch (err) {
       setErrorMsg(err.message)
       setLoading(false)
@@ -48,31 +45,12 @@ const AuthPage = ({ onNavigate }) => {
       if (isSignUp) {
         if (!normalizedName) throw new Error('Full name is required.')
 
-        const { data, error } = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password,
-          options: {
-            data: { full_name: normalizedName }
-          }
-        })
-        if (error) throw error
-        
-        // If email confirmation is ON, Supabase returns user but session is null
-        if (data?.user && !data?.session) {
-          setSuccessMsg('Check your email to confirm your account, then log in.')
-        } else {
-          setSuccessMsg('Account created. Redirecting...')
-        }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        })
-        if (error) throw error
+        const { user } = await createUserWithEmailAndPassword(auth, normalizedEmail, password)
+        await updateProfile(user, { displayName: normalizedName })
 
-        if (!data?.session) {
-          throw new Error('Login did not create a session. Please try again.')
-        }
+        setSuccessMsg('Account created. Redirecting...')
+      } else {
+        await signInWithEmailAndPassword(auth, normalizedEmail, password)
         setSuccessMsg('Logged in. Redirecting...')
       }
     } catch (err) {

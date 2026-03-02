@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs, addDoc, deleteDoc, doc, setDoc } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import './StudyRoomsListPage.css'
@@ -7,7 +8,7 @@ import './StudyRoomsListPage.css'
 const generateCode = () => Math.random().toString(36).substring(2, 8).toUpperCase()
 
 const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
   const toast = useToast()
   const [myRooms, setMyRooms] = useState([])
   const [loading, setLoading] = useState(true)
@@ -15,26 +16,36 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
   const [joining, setJoining] = useState(false)
   const [roomName, setRoomName] = useState('')
   const [joinCode, setJoinCode] = useState('')
-  const [activeTab, setActiveTab] = useState('my') // 'my' | 'create' | 'join'
-
-  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Scholar'
+  const [activeTab, setActiveTab] = useState('my')
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    if (user) fetchMyRooms()
+    if (user?.uid) fetchMyRooms()
   }, [user])
 
   const fetchMyRooms = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('room_members')
-        .select('room_id, study_rooms(id, name, code, created_by, created_at)')
-        .eq('user_id', user)
-        .order('joined_at', { ascending: false })
+      // Step 1: Find all room IDs the user belongs to
+      const q = query(collection(db, 'room_members'), where('user_id', '==', user.uid))
+      const memberSnap = await getDocs(q)
+      const roomIds = memberSnap.docs.map(doc => doc.data().room_id)
 
-      if (error) throw error
-      setMyRooms((data || []).map(m => m.study_rooms).filter(Boolean))
+      if (roomIds.length === 0) {
+        setMyRooms([])
+        return
+      }
+
+      // Step 2: Fetch the actual room data
+      // For simplicity in small lists, we fetch all or chunk them.
+      const roomsData = []
+      for (const id of roomIds) {
+        // This is a bit inefficient for many rooms but standard for a start
+        const roomSnap = await getDocs(query(collection(db, 'study_rooms'), where('id', '==', id)))
+        if (!roomSnap.empty) {
+          roomsData.push({ id, ...roomSnap.docs[0].data() })
+        }
+      }
+      setMyRooms(roomsData)
     } catch (err) {
       console.error('Failed to fetch rooms:', err.message)
     } finally {
@@ -43,31 +54,36 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
   }
 
   const createRoom = async () => {
-    if (!roomName.trim()) return
+    if (!roomName.trim() || !user?.uid) return
     setCreating(true)
     try {
       const code = generateCode()
-      const { data: room, error: roomErr } = await supabase
-        .from('study_rooms')
-        .insert([{ name: roomName.trim(), code, created_by: user.id }])
-        .select()
-        .single()
+      const roomData = { 
+        name: roomName.trim(), 
+        code, 
+        created_by: user.uid,
+        created_at: new Date().toISOString()
+      }
+      
+      const roomRef = await addDoc(collection(db, 'study_rooms'), roomData)
+      const roomId = roomRef.id
+      
+      // Update the doc with its own ID for easier querying later if needed
+      await setDoc(doc(db, 'study_rooms', roomId), { id: roomId }, { merge: true })
 
-      if (roomErr) throw roomErr
+      await addDoc(collection(db, 'room_members'), {
+        room_id: roomId,
+        user_id: user.uid,
+        joined_at: new Date().toISOString()
+      })
 
-      await supabase.from('room_members').insert([{
-        room_id: room.id,
-        user_id: user,
-        display_name: displayName
-      }])
-
-      toast(`Room "${room.name}" created! Code: ${room.code}`, 'success', 5000)
+      toast(`Room "${roomName}" created! Code: ${code}`, 'success', 5000)
       setRoomName('')
       setActiveTab('my')
       fetchMyRooms()
-      onEnterRoom(room.id, room.name)
+      onEnterRoom(roomId, roomName)
     } catch (err) {
-      toast('Failed to create room. Please try again.', 'error')
+      toast('Failed to create room.', 'error')
       console.error(err.message)
     } finally {
       setCreating(false)
@@ -75,31 +91,33 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
   }
 
   const joinRoom = async () => {
-    if (!joinCode.trim()) return
+    if (!joinCode.trim() || !user?.uid) return
     setJoining(true)
     try {
-      const { data: room, error } = await supabase
-        .from('study_rooms')
-        .select('*')
-        .eq('code', joinCode.trim().toUpperCase())
-        .single()
+      const q = query(collection(db, 'study_rooms'), where('code', '==', joinCode.trim().toUpperCase()))
+      const roomSnap = await getDocs(q)
 
-      if (error || !room) { toast('Room not found. Check the code and try again.', 'error'); return }
+      if (roomSnap.empty) {
+        toast('Room not found. Check the code.', 'error')
+        return
+      }
+
+      const room = { id: roomSnap.docs[0].id, ...roomSnap.docs[0].data() }
 
       // Check if already a member
-      const { data: existing } = await supabase
-        .from('room_members')
-        .select('user_id')
-        .eq('room_id', room.id)
-        .eq('user_id', user)
-        .single()
+      const memberQ = query(
+        collection(db, 'room_members'), 
+        where('room_id', '==', room.id),
+        where('user_id', '==', user.uid)
+      )
+      const memberSnap = await getDocs(memberQ)
 
-      if (!existing) {
-        await supabase.from('room_members').insert([{
+      if (memberSnap.empty) {
+        await addDoc(collection(db, 'room_members'), {
           room_id: room.id,
-          user_id: user.id,
-          display_name: displayName
-        }])
+          user_id: user.uid,
+          joined_at: new Date().toISOString()
+        })
       }
 
       toast(`Joined "${room.name}"!`, 'success')
@@ -107,7 +125,7 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
       fetchMyRooms()
       onEnterRoom(room.id, room.name)
     } catch (err) {
-      toast('Something went wrong. Try again.', 'error')
+      toast('Failed to join room.', 'error')
       console.error(err.message)
     } finally {
       setJoining(false)
@@ -116,8 +134,16 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
 
   const leaveRoom = async (roomId, e) => {
     e.stopPropagation()
+    if (!user?.uid) return
     try {
-      await supabase.from('room_members').delete().eq('room_id', roomId).eq('user_id', user.id)
+      const q = query(
+        collection(db, 'room_members'), 
+        where('room_id', '==', roomId),
+        where('user_id', '==', user.uid)
+      )
+      const snap = await getDocs(q)
+      snap.forEach(async (d) => await deleteDoc(doc(db, 'room_members', d.id)))
+      
       setMyRooms(prev => prev.filter(r => r.id !== roomId))
       toast('Left the room.', 'success')
     } catch (err) {
@@ -128,13 +154,13 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
   return (
     <div className="canvas-layout">
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
             <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
             <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Study Rooms</h1>
           </div>
           <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">
-            ← Dashboard
+            ← {t('nav.dashboard')}
           </button>
         </div>
       </header>

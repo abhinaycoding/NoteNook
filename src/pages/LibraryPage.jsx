@@ -5,10 +5,22 @@ import ProGate from '../components/ProGate'
 import { useToast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext'
+import { db } from '../lib/firebase'
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  doc,
+  serverTimestamp 
+} from 'firebase/firestore'
 import './LibraryPage.css'
 
 const LibraryPage = ({ onNavigate }) => {
-  const { user, session } = useAuth()
+  const { user } = useAuth()
   const { isPro } = usePlan()
   const toast = useToast()
   const [notes, setNotes] = useState([])
@@ -18,78 +30,57 @@ const LibraryPage = ({ onNavigate }) => {
   const [activeFolder, setActiveFolder] = useState('All')
   const hasReachedLimit = !isPro && notes.length >= 10
   
-  const getHeaders = useCallback((prefer = 'return=representation') => ({
-    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
-    ...(prefer && { 'Prefer': prefer })
-  }), [session])
-  
-  // Fetch notes on mount
+  // Real-time subscription to notes
   useEffect(() => {
-    let isMounted = true
-    if (!user || !session) return
+    if (!user?.uid) return
     
-    const fetchNotes = async () => {
-      try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?user_id=eq.${user}&select=*&order=updated_at.desc`
-        const res = await fetch(url, { headers: getHeaders() })
+    const q = query(
+      collection(db, 'notes'),
+      where('user_id', '==', user.uid),
+      orderBy('updated_at', 'desc')
+    )
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setNotes(notesData)
+      setLoading(false)
+
+      // Check if we navigated here from Dashboard Archives
+      const pendingNoteId = localStorage.getItem('ff_open_note')
+      if (pendingNoteId) {
+        setActiveNoteId(pendingNoteId)
+        localStorage.removeItem('ff_open_note')
         
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`)
-        const data = await res.json()
-        
-        if (isMounted) {
-          setNotes(data || [])
-          
-          // Check if we navigated here from Dashboard Archives
-          const pendingNoteId = localStorage.getItem('ff_open_note')
-          if (pendingNoteId) {
-            setActiveNoteId(pendingNoteId)
-            localStorage.removeItem('ff_open_note')
-            
-            // Also ensure we're viewing the correct folder if not 'All'
-            const targetNote = data?.find(n => n.id === pendingNoteId)
-            if (targetNote && targetNote.folder && targetNote.folder !== 'Uncategorized') {
-              setActiveFolder(targetNote.folder)
-            }
-          }
+        const targetNote = notesData.find(n => n.id === pendingNoteId)
+        if (targetNote?.folder && targetNote.folder !== 'Uncategorized') {
+          setActiveFolder(targetNote.folder)
         }
-      } catch (error) {
-        console.error('Error fetching notes:', error.message)
-      } finally {
-        if (isMounted) setLoading(false)
       }
-    }
-    
-    fetchNotes()
-    return () => { isMounted = false }
-  }, [user, session, getHeaders])
+    }, (err) => {
+      console.error('Firestore notes error:', err.message)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [user])
 
   const handleCreateNote = async () => {
-    if (!session) return
+    if (!user?.uid) return
     try {
       const newNote = {
-        user_id: user,
+        user_id: user.uid,
         title: 'Untitled Document',
         content: '',
-        folder: activeFolder === 'All' ? 'Uncategorized' : activeFolder
+        folder: activeFolder === 'All' ? 'Uncategorized' : activeFolder,
+        updated_at: serverTimestamp()
       }
       
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes`
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify(newNote)
-      })
-      
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const inserted = await res.json()
-      
-      if (inserted && inserted.length > 0) {
-        setNotes([inserted[0], ...notes])
-        setActiveNoteId(inserted[0].id)
-        toast('New manuscript created.', 'success')
-      }
+      const docRef = await addDoc(collection(db, 'notes'), newNote)
+      setActiveNoteId(docRef.id)
+      toast('New manuscript created.', 'success')
     } catch (error) {
       toast('Failed to create note.', 'error')
       console.error('Error creating note:', error.message)
@@ -98,30 +89,21 @@ const LibraryPage = ({ onNavigate }) => {
 
   const handleDeleteNote = async (id) => {
     if (!window.confirm('Erase this manuscript permanently?')) return;
-    if (!session) return;
-    
-    // Optimistic UI
-    const previousNotes = [...notes];
-    setNotes(notes.filter(n => n.id !== id))
-    if (activeNoteId === id) setActiveNoteId(null)
+    if (!user?.uid) return;
     
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?id=eq.${id}`
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers: getHeaders('return=minimal')
-      })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      await deleteDoc(doc(db, 'notes', id))
+      if (activeNoteId === id) setActiveNoteId(null)
       toast('Manuscript erased from the Archives.', 'info')
     } catch (error) {
       toast('Failed to delete note.', 'error')
       console.error('Error deleting note:', error.message)
-      setNotes(previousNotes) // Revert
     }
   }
 
   const handleUpdateNote = (id, updatedFields) => {
-    setNotes(notes.map(note => note.id === id ? { ...note, ...updatedFields } : note))
+    // This handles state updates passed from NoteEditor (which does the DB save)
+    setNotes(prev => prev.map(note => note.id === id ? { ...note, ...updatedFields } : note))
   }
 
   // Derive folders dynamically from notes
@@ -140,19 +122,14 @@ const LibraryPage = ({ onNavigate }) => {
   return (
     <div className="canvas-layout">
       <header className="canvas-header container">
-        <div className="flex justify-between items-end border-b border-ink pb-4 pt-4">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
           <div className="flex items-center gap-4">
             <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
-            <h1 className="text-xl font-serif text-muted italic ml-4 line-left pl-4">The Library</h1>
+            <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>The Library</h1>
           </div>
-          <div className="flex gap-8 items-end text-right">
-            <button 
-              onClick={() => onNavigate('dashboard')}
-              className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer"
-            >
-              ← Return to Dashboard
-            </button>
-          </div>
+          <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">
+            ← {t('nav.dashboard')}
+          </button>
         </div>
       </header>
 

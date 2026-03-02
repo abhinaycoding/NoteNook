@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import './StudyHeatmap.css'
 
@@ -71,7 +72,7 @@ const StudyHeatmap = () => {
   })
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.uid) return
 
     const fetchData = async () => {
       try {
@@ -80,20 +81,20 @@ const StudyHeatmap = () => {
         yearAgo.setFullYear(yearAgo.getFullYear() - 1)
         yearAgo.setHours(0, 0, 0, 0)
 
-        const { data: sessions, error } = await supabase
-          .from('sessions')
-          .select('duration_seconds, created_at')
-          .eq('user_id', user)
-          .gte('created_at', yearAgo.toISOString())
-
-        if (error) throw error
+        const q = query(
+          collection(db, 'sessions'), 
+          where('user_id', '==', user.uid),
+          where('created_at', '>=', yearAgo.toISOString())
+        )
+        const snap = await getDocs(q)
+        const sessions = snap.docs.map(doc => doc.data())
 
         // Aggregate hours per day
         const byDay = {}
         ;(sessions || []).forEach(s => {
           const dateKey = s.created_at.split('T')[0]
           if (!byDay[dateKey]) byDay[dateKey] = 0
-          byDay[dateKey] += s.duration_seconds / 3600
+          byDay[dateKey] += (s.duration_seconds || 0) / 3600
         })
 
         setDayData(byDay)
@@ -105,7 +106,7 @@ const StudyHeatmap = () => {
     }
 
     fetchData()
-  }, [user])
+  }, [user?.uid])
 
   const handleCellHover = (e, d) => {
     if (!d.date) return

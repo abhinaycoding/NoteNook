@@ -22,54 +22,39 @@ const PricingPage = ({ onNavigate }) => {
 
     setLoading(true);
     try {
-      // 1. Create a Razorpay order via our Edge Function
-      console.log('[Payment] Step 1: Creating order...');
+      // 1. Create a simulated/client-side order
+      console.log('[Payment] Initiating order...');
       const order = await createRazorpayOrder({
-        userId: user,
+        amount: 99,
+        userId: user.uid,
         userEmail: user.email,
-        userName: user.user_metadata?.full_name || '',
+        userName: profile?.full_name || '',
       });
-      console.log('[Payment] Order created:', order);
 
       // 2. Open Razorpay checkout modal
-      console.log('[Payment] Step 2: Opening checkout...');
+      console.log('[Payment] Opening checkout...');
       const paymentResult = await openRazorpayCheckout({
         orderId: order.orderId,
         amount: order.amount,
         currency: order.currency,
         keyId: order.keyId,
         user,
+        profile
       });
       console.log('[Payment] Checkout completed:', paymentResult);
 
-      // 3. Verify payment on server
-      console.log('[Payment] Step 3: Verifying payment...');
-      try {
-        const verification = await verifyRazorpayPayment({
-          ...paymentResult,
-          userId: user,
-        });
-        console.log('[Payment] Verification result:', verification);
-      } catch (verifyErr) {
-        console.warn('[Payment] Server verification failed, using direct upgrade:', verifyErr.message);
-        // Verification failed but payment was captured - upgrade directly
-      }
-
-      // 4. Force refresh plan status (works regardless of verify result)
-      console.log('[Payment] Step 4: Refreshing plan...');
-      await refreshPlan();
-
-      // If still not pro after refresh, force it directly
-      if (!isPro) {
-        console.log('[Payment] Still not pro after refresh, forcing upgrade...');
-        if (upgradePlan) await upgradePlan();
+      // 3. Upgrade Plan directly in Firestore
+      // In production, you'd verify the signature first.
+      console.log('[Payment] Upgrading plan...');
+      if (upgradePlan) {
+        await upgradePlan();
         await refreshPlan();
       }
 
-      toast('Welcome to the Master tier! All features unlocked. 🎉', 'success');
+      toast(t('pricing.successMsg') || 'Welcome to the Master tier! All features unlocked. 🎉', 'success');
     } catch (err) {
       if (err.message === 'Payment cancelled') {
-        toast('Payment cancelled. No charges made.', 'info');
+        toast(t('pricing.cancelledMsg') || 'Payment cancelled. No charges made.', 'info');
       } else {
         console.error('[Payment] Error:', err);
         toast(err.message || 'Payment failed. Please try again.', 'error');
@@ -81,10 +66,20 @@ const PricingPage = ({ onNavigate }) => {
 
 
   return (
-    <div className="pricing-page min-h-screen">
-      <Navigation onNavigate={onNavigate} />
-      
-      <main className="container max-w-5xl py-24">
+    <div className="canvas-layout">
+      <header className="canvas-header container">
+        <div className="flex justify-between items-center border-b border-ink pb-4 pt-4">
+          <div className="flex items-center gap-4">
+            <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
+            <h1 className="text-xl font-serif text-muted italic ml-4 pl-4" style={{ borderLeft: '1px solid var(--border)' }}>Pricing</h1>
+          </div>
+          <button onClick={() => onNavigate('dashboard')} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer">
+            ← {t('nav.dashboard')}
+          </button>
+        </div>
+      </header>
+
+      <main className="pricing-container container">
         <div className="text-center mb-16">
           <h1 className="text-6xl font-serif text-primary mb-4">NoteNook Plans</h1>
           <p className="text-muted tracking-widest uppercase text-sm">

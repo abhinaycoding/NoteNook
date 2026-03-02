@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { useState, useEffect } from 'react'
+import { auth, db } from '../lib/firebase'
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  serverTimestamp 
+} from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { usePlan } from '../contexts/PlanContext'
@@ -20,7 +32,7 @@ const TaskPlanner = () => {
   const { t } = useTranslation()
   const [tasks, setTasks] = useState([])
   const hasReachedLimit = !isPro && tasks.length >= 20
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newPriority, setNewPriority] = useState('medium')
@@ -28,7 +40,7 @@ const TaskPlanner = () => {
   const [editingId, setEditingId] = useState(null)
   const [editTitle, setEditTitle] = useState('')
 
-  // Add global shortcut 'N' for new task
+  // Global shortcut 'N' for new task
   useKeyboardShortcuts([
     {
       key: 'n',
@@ -38,110 +50,95 @@ const TaskPlanner = () => {
     }
   ])
 
-  const fetchTasks = () => {
-    setLoading(true)
-    supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setTasks(data.filter(t => t.due_date !== 'goal' && t.due_date !== 'syllabus'))
-        } else if (error) {
-          console.error('Ledger fetch error:', error.message)
-        }
-        setLoading(false)
-      })
-  }
-
   useEffect(() => {
-    if (user) {
-      fetchTasks()
+    if (!user?.uid) return
 
-      const handleTaskUpdated = (e) => {
-        const { id, completed, deleted, added } = e.detail || {}
-        if (id !== undefined && completed !== undefined) {
-          setTasks(prev => prev.map(t => t.id === id ? { ...t, completed } : t))
-        } else if (added || deleted) {
-          fetchTasks()
-        }
-      }
-      window.addEventListener('task-updated', handleTaskUpdated)
-      return () => window.removeEventListener('task-updated', handleTaskUpdated)
-    }
+    const q = query(
+      collection(db, 'tasks'),
+      where('user_id', '==', user.uid),
+      orderBy('created_at', 'desc')
+    )
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const tasksData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setTasks(tasksData)
+      setLoading(false)
+    }, (err) => {
+      console.error('Firestore tasks error:', err.message)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [user])
 
   const addTask = async () => {
     const title = newTitle.trim()
-    if (!title || !user) { setIsAdding(false); setNewTitle(''); return }
+    if (!title || !user?.uid) { setIsAdding(false); setNewTitle(''); return }
+    if (hasReachedLimit) return
 
-    const tempId = `temp-${Date.now()}`
-    setTasks(prev => [{ id: tempId, title, priority: newPriority, deadline_at: newDeadline || null, completed: false }, ...prev])
     setIsAdding(false)
     setNewTitle('')
 
-    supabase
-      .from('tasks')
-      .insert([{ user_id: user, title, priority: newPriority, deadline_at: newDeadline || null }])
-      .select()
-      .single()
-      .then(({ data, error }) => {
-        if (error) {
-          setTasks(prev => prev.filter(t => t.id !== tempId))
-          toast(t('tasks.taskFailed'), 'error')
-          return
-        }
-        setTasks(prev => prev.map(t => t.id === tempId ? data : t))
-        toast(t('tasks.taskAdded'), 'success')
-        window.dispatchEvent(new CustomEvent('task-updated', { detail: { added: true } }))
+    try {
+      await addDoc(collection(db, 'tasks'), {
+        user_id: user.uid,
+        title,
+        priority: newPriority,
+        deadline_at: newDeadline || null,
+        completed: false,
+        created_at: serverTimestamp()
       })
+      toast(t('tasks.taskAdded'), 'success')
+      window.dispatchEvent(new CustomEvent('task-updated', { detail: { added: true } }))
+    } catch (err) {
+      toast(t('tasks.taskFailed'), 'error')
+      console.error(err)
+    }
   }
 
   const toggleTask = async (id, current) => {
-    // Optimistic UI update
-    setTasks(prev => prev.map(tk => tk.id === id ? { ...tk, completed: !current } : tk))
-    window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: !current } }))
-
-    const { error } = await supabase.from('tasks').update({ completed: !current }).eq('id', id)
-    
-    if (error) {
-      // Revert on failure
-      setTasks(prev => prev.map(tk => tk.id === id ? { ...tk, completed: current } : tk))
-      window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: current } }))
-      toast(t('tasks.taskSyncFailed'), 'error')
-      console.error(error)
-      return
-    }
-
-    if (!current) {
-      toast(t('tasks.taskComplete'), 'success')
-      addNotification('Task Complete', t('tasks.taskCompleteNotif'), 'success')
+    try {
+      await updateDoc(doc(db, 'tasks', id), { completed: !current })
+      window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: !current } }))
       
-      // Play Task Completion Sound
-      const pop = new Audio('https://cdn.pixabay.com/audio/2022/03/10/audio_f3152ef32d.mp3')
-      pop.volume = 0.4
-      pop.play().catch(e => console.log("Sound blocked:", e))
+      if (!current) {
+        toast(t('tasks.taskComplete'), 'success')
+        addNotification('Task Complete', t('tasks.taskCompleteNotif'), 'success')
+        const pop = new Audio('https://cdn.pixabay.com/audio/2022/03/10/audio_f3152ef32d.mp3')
+        pop.volume = 0.4
+        pop.play().catch(e => console.log("Sound blocked:", e))
+      }
+    } catch (err) {
+      toast(t('tasks.taskSyncFailed'), 'error')
+      console.error(err)
     }
   }
 
-  const deleteTask = (id) => {
-    setTasks(prev => prev.filter(tk => tk.id !== id))
-    supabase.from('tasks').delete().eq('id', id)
-    toast(t('tasks.taskRemoved'), 'info')
-    window.dispatchEvent(new CustomEvent('task-updated', { detail: { deleted: true, id } }))
+  const deleteTask = async (id) => {
+    try {
+      await deleteDoc(doc(db, 'tasks', id))
+      toast(t('tasks.taskRemoved'), 'info')
+      window.dispatchEvent(new CustomEvent('task-updated', { detail: { deleted: true, id } }))
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const startEdit = (task) => { setEditingId(task.id); setEditTitle(task.title) }
 
-  const saveEdit = (id) => {
+  const saveEdit = async (id) => {
     const title = editTitle.trim()
     setEditingId(null)
     if (!title) return
-    setTasks(prev => prev.map(tk => tk.id === id ? { ...tk, title } : tk))
-    supabase.from('tasks').update({ title }).eq('id', id)
-    toast(t('tasks.taskUpdated'), 'success')
-    window.dispatchEvent(new CustomEvent('task-updated', { detail: { updated: true, id } }))
+    try {
+      await updateDoc(doc(db, 'tasks', id), { title })
+      toast(t('tasks.taskUpdated'), 'success')
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const incomplete = tasks.filter(tk => !tk.completed)

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-
-import { useAuth } from '../contexts/AuthContext'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 
 const NoteEditor = ({ note, onUpdate }) => {
   const [title, setTitle] = useState(note.title || '')
@@ -27,28 +26,19 @@ const NoteEditor = ({ note, onUpdate }) => {
     setWordCount(words.length)
   }
 
-  const getHeaders = () => ({
-    'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-    'Authorization': `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=minimal'
-  })
-
   const debounceSave = (updatedFields) => {
-    if (!session) return
+    if (!user?.uid) return
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     setSaveStatus('Saving...')
     onUpdate(note.id, updatedFields)
 
     saveTimeoutRef.current = setTimeout(async () => {
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/notes?id=eq.${note.id}`
-        const res = await fetch(url, {
-          method: 'PATCH',
-          headers: getHeaders(),
-          body: JSON.stringify({ ...updatedFields, updated_at: new Date().toISOString() })
+        const docRef = doc(db, 'notes', note.id)
+        await updateDoc(docRef, { 
+          ...updatedFields, 
+          updated_at: serverTimestamp() 
         })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
         setSaveStatus('✓ Saved')
       } catch (err) {
         console.error('Auto-save error:', err.message)

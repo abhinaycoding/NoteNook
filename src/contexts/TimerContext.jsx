@@ -1,6 +1,6 @@
-/* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
+import React, { createContext, useState, useEffect, useRef, useContext } from 'react'
+import { db } from '../lib/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuth } from './AuthContext'
 
 const TimerContext = createContext({})
@@ -44,17 +44,24 @@ export const TimerProvider = ({ children }) => {
 
   // Save session when complete
   useEffect(() => {
-    if (!isComplete || !user || sessionSaved) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- guard prevents re-triggering
-    setSessionSaved(true)
-    supabase.from('sessions').insert([{
-      user_id: user.id,
-      duration_seconds: selectedMinutes * 60,
-      completed: true,
-      created_at: new Date().toISOString(),
-    }]).then(() => {
-      window.dispatchEvent(new CustomEvent('session-saved', { detail: { duration: selectedMinutes * 60 } }))
-    }).catch(err => console.error('Session save error:', err.message))
+    if (!isComplete || !user?.uid || sessionSaved) return
+    
+    const saveSession = async () => {
+      setSessionSaved(true)
+      try {
+        await addDoc(collection(db, 'sessions'), {
+          user_id: user.uid,
+          duration_seconds: selectedMinutes * 60,
+          completed: true,
+          created_at: serverTimestamp(),
+        })
+        window.dispatchEvent(new CustomEvent('session-saved', { detail: { duration: selectedMinutes * 60 } }))
+      } catch (err) {
+        console.error('Session save error:', err.message)
+      }
+    }
+
+    saveSession()
   }, [isComplete, user, selectedMinutes, sessionSaved])
 
   const start = () => {

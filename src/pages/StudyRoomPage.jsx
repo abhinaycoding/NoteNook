@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  setDoc,
+  serverTimestamp,
+  limit
+} from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useTimer } from '../contexts/TimerContext'
 import { useZen } from '../contexts/ZenContext'
@@ -35,25 +49,15 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
   const { secondsLeft, isRunning, isComplete } = useTimer()
   const { isZenModeActive, activeTrackId } = useZen()
   const toast = useToast()
-  const channelRef = useRef(null)
 
-  // Members presence
   const [members, setMembers] = useState([])
   const [nudgedMemberId, setNudgedMemberId] = useState(null)
-  
-  // Shared tasks
-  const [tasks, setTasks]     = useState([])
+  const [tasks, setTasks] = useState([])
   const [newTask, setNewTask] = useState('')
   const [addingTask, setAddingTask] = useState(false)
-  
-  // Whiteboard Modal
   const [showWhiteboard, setShowWhiteboard] = useState(false)
-
-  // Room info
   const [roomCode, setRoomCode] = useState('')
   const [copied, setCopied] = useState(false)
-
-  // Chat & Emotes
   const [messages, setMessages] = useState([])
   const [chatInput, setChatInput] = useState('')
   const [activeEmotes, setActiveEmotes] = useState([])
@@ -61,231 +65,185 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
 
   const displayName = profile?.full_name || 'Scholar'
 
-  // ── Fetch room code ──────────────────────────────────────────────────────
+  // 1. Fetch Room Code
   useEffect(() => {
-    supabase
-      .from('study_rooms')
-      .select('code')
-      .eq('id', roomId)
-      .single()
-      .then(({ data }) => { if (data) setRoomCode(data.code) })
+    if (!roomId) return
+    const unsubscribe = onSnapshot(doc(db, 'study_rooms', roomId), (snap) => {
+      if (snap.exists()) setRoomCode(snap.data().code)
+    })
+    return () => unsubscribe()
   }, [roomId])
 
-  // ── Supabase Realtime Presence ───────────────────────────────────────────
+  // 2. Presence Heartbeat & Membership Sync
   useEffect(() => {
-    const channel = supabase.channel(`room:${roomId}`, {
-      config: { presence: { key: user?.id } }
+    if (!user?.uid || !roomId) return
+
+    // Update presence every 30 seconds
+    const updatePresence = async () => {
+      const q = query(
+        collection(db, 'room_members'), 
+        where('room_id', '==', roomId),
+        where('user_id', '==', user.uid)
+      )
+      const snap = await getDocs(q)
+      if (!snap.empty) {
+        await updateDoc(doc(db, 'room_members', snap.docs[0].id), {
+          display_name: displayName,
+          avatar_id: profile?.avatar_id || 'owl',
+          timer_status: isRunning ? 'focusing' : isComplete ? 'done' : 'idle',
+          seconds_left: secondsLeft,
+          is_zen: isZenModeActive,
+          active_track_id: activeTrackId || null,
+          last_seen: serverTimestamp()
+        })
+      }
+    }
+
+    updatePresence()
+    const interval = setInterval(updatePresence, 30000)
+
+    // Listen to all members
+    const q = query(collection(db, 'room_members'), where('room_id', '==', roomId))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = Date.now()
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      // Filter out members who haven't been seen in 2 minutes
+      setMembers(list.filter(m => {
+        const lastSeen = m.last_seen?.toDate ? m.last_seen.toDate().getTime() : now
+        return (now - lastSeen) < 120000
+      }))
     })
 
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState()
-        const list = Object.values(state).map(arr => arr[0]).filter(Boolean)
-        setMembers(list)
-      })
-      .on('broadcast', { event: 'chat' }, (payload) => {
-        setMessages(prev => [...prev, payload.payload])
-      })
-      .on('broadcast', { event: 'emote' }, (payload) => {
-        triggerEmote(payload.payload.emoji)
-      })
-      .on('broadcast', { event: 'nudge' }, (payload) => {
-        if (payload.payload.target_id === user?.id) {
-          handleReceivedNudge(payload.payload.from_name)
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({
-            user_id: user?.id,
-            display_name: displayName,
-            avatar_id: profile?.avatar_id || 'owl',
-            timer_status: isRunning ? 'focusing' : isComplete ? 'done' : 'idle',
-            seconds_left: secondsLeft,
-            is_zen: isZenModeActive,
-            active_track_id: activeTrackId,
-            online_at: new Date().toISOString(),
-          })
-        }
-      })
-
-    channelRef.current = channel
-
     return () => {
-      channel.untrack()
-      supabase.removeChannel(channel)
+      clearInterval(interval)
+      unsubscribe()
     }
-  }, [roomId, user?.id, displayName, isRunning, isComplete, secondsLeft, isZenModeActive, activeTrackId, profile?.avatar_id])
+  }, [roomId, user?.uid, isRunning, isComplete, secondsLeft, isZenModeActive, activeTrackId, displayName, profile?.avatar_id])
 
-  // ── Sync local status to presence ───────────────────────────────────────
+  // 3. Shared Tasks
   useEffect(() => {
-    if (channelRef.current && user?.id) {
-      channelRef.current.track({
-        user_id: user?.id,
-        user_name: profile?.full_name || 'Anonymous Scholar',
-        avatar_id: profile?.avatar_id || 'owl',
-        seconds_left: secondsLeft,
-        is_zen: isZenModeActive,
-        active_track_id: activeTrackId,
-        timer_status: isRunning ? 'focusing' : (isComplete ? 'finished' : 'idle'),
-        online_at: new Date().toISOString(),
-      })
-    }
-  }, [isRunning, isComplete, secondsLeft, isZenModeActive, activeTrackId, user?.id, displayName, profile?.avatar_id])
-
-  // ── Fetch & subscribe to shared tasks ───────────────────────────────────
-  useEffect(() => {
-    supabase
-      .from('room_tasks')
-      .select('*')
-      .eq('room_id', roomId)
-      .order('created_at', { ascending: true })
-      .then(({ data }) => setTasks(data || []))
-
-    const sub = supabase
-      .channel(`room_tasks:${roomId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'room_tasks',
-        filter: `room_id=eq.${roomId}`,
-      }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setTasks(prev => [...prev, payload.new])
-        } else if (payload.eventType === 'UPDATE') {
-          setTasks(prev => prev.map(t => t.id === payload.new.id ? payload.new : t))
-        } else if (payload.eventType === 'DELETE') {
-          setTasks(prev => prev.filter(t => t.id !== payload.old.id))
-        }
-      })
-      .subscribe()
-
-    return () => supabase.removeChannel(sub)
+    if (!roomId) return
+    const q = query(collection(db, 'room_tasks'), where('room_id', '==', roomId), orderBy('created_at', 'asc'))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    })
+    return () => unsubscribe()
   }, [roomId])
 
-  const addTask = async () => {
-    if (!newTask.trim()) return
-    setAddingTask(true)
-    const tempId = crypto.randomUUID()
-    const taskObj = {
-      id: tempId,
-      room_id: roomId,
-      created_by: user.id,
-      title: newTask.trim(),
-      completed: false,
-      created_at: new Date().toISOString()
-    }
-    setTasks(prev => [...prev, taskObj])
-    setNewTask('')
-    try {
-      const { data, error } = await supabase.from('room_tasks').insert([
-        {
-          room_id: roomId,
-          created_by: guestId,
-          title: taskObj.title,
+  // 4. Chat Messages
+  useEffect(() => {
+    if (!roomId) return
+    const q = query(
+      collection(db, 'room_messages'), 
+      where('room_id', '==', roomId), 
+      orderBy('created_at', 'asc'),
+      limit(50)
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })))
+    })
+    return () => unsubscribe()
+  }, [roomId])
+
+  // 5. Ephemeral Events (Nudges, Emotes)
+  useEffect(() => {
+    if (!roomId || !user?.uid) return
+    const q = query(
+      collection(db, 'room_events'), 
+      where('room_id', '==', roomId),
+      where('created_at', '>', new Date(Date.now() - 5000)), // Only last 5 seconds
+      orderBy('created_at', 'desc')
+    )
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const event = change.doc.data()
+          if (event.type === 'emote') triggerEmote(event.emoji)
+          if (event.type === 'nudge' && event.target_id === user.uid) {
+            handleReceivedNudge(event.from_name)
+          }
         }
-      ]).select()
-      if (error) throw error
-      if (data && data[0]) {
-        setTasks(prev => prev.map(t => t.id === tempId ? data[0] : t))
-      }
-    } catch {
+      })
+    })
+    return () => unsubscribe()
+  }, [roomId, user?.uid])
+
+  const addTask = async () => {
+    if (!newTask.trim() || !user?.uid) return
+    setAddingTask(true)
+    try {
+      await addDoc(collection(db, 'room_tasks'), {
+        room_id: roomId,
+        created_by: user.uid,
+        title: newTask.trim(),
+        completed: false,
+        created_at: serverTimestamp()
+      })
+      setNewTask('')
+    } catch (err) {
       toast('Failed to add task.', 'error')
-      setTasks(prev => prev.filter(t => t.id !== tempId))
     } finally {
       setAddingTask(false)
     }
   }
 
   const toggleTask = async (task) => {
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t))
     try {
-      const { error } = await supabase.from('room_tasks').update({ completed: !task.completed }).eq('id', task.id)
-      if (error) throw error
-    } catch {
+      await updateDoc(doc(db, 'room_tasks', task.id), { completed: !task.completed })
+    } catch (err) {
       toast('Failed to update task.', 'error')
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: task.completed } : t))
     }
   }
 
   const deleteTask = async (id) => {
-    const taskToDelete = tasks.find(t => t.id === id)
-    setTasks(prev => prev.filter(t => t.id !== id))
     try {
-      const { error } = await supabase.from('room_tasks').delete().eq('id', id)
-      if (error) throw error
-    } catch {
+      await deleteDoc(doc(db, 'room_tasks', id))
+    } catch (err) {
       toast('Failed to delete task.', 'error')
-      if (taskToDelete) setTasks(prev => [...prev, taskToDelete])
     }
   }
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(roomCode)
-    setCopied(true)
-    toast(`Code "${roomCode}" copied! Share it with classmates.`, 'success')
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const incompletes = tasks.filter(t => !t.completed)
-  const completes   = tasks.filter(t => t.completed)
-
-  // ── Calculate Group Momentum ─────────────────────────────────────────────
-  const groupMomentum = React.useMemo(() => {
-    if (members.length === 0) return 0
-    const focusing = members.filter(m => m.timer_status === 'focusing').length
-    return Math.round((focusing / members.length) * 100)
-  }, [members])
-
-  const sendChat = () => {
-    if (!chatInput.trim() || !channelRef.current) return
-    const msg = {
-      id: crypto.randomUUID(),
-      user_id: guestId,
-      display_name: displayName,
-      text: chatInput.trim(),
-      created_at: new Date().toISOString(),
-    }
-    setMessages(prev => [...prev, msg])
+  const sendChat = async () => {
+    if (!chatInput.trim() || !user?.uid) return
+    const text = chatInput.trim()
     setChatInput('')
-    channelRef.current.send({
-      type: 'broadcast',
-      event: 'chat',
-      payload: msg
-    })
-  }
-
-  const broadcastEmote = (emoji) => {
-    triggerEmote(emoji)
-    if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'emote',
-        payload: { emoji, user_id: user.id }
+    try {
+      await addDoc(collection(db, 'room_messages'), {
+        room_id: roomId,
+        user_id: user.uid,
+        display_name: displayName,
+        text,
+        created_at: serverTimestamp(),
       })
+    } catch (err) {
+      console.error(err)
     }
   }
 
-  const triggerEmote = (emoji) => {
-    const id = crypto.randomUUID()
-    const startX = 10 + Math.random() * 80
-    setActiveEmotes(prev => [...prev, { id, emoji, startX }])
-    setTimeout(() => {
-      setActiveEmotes(prev => prev.filter(e => e.id !== id))
-    }, 3000)
+  const broadcastEmote = async (emoji) => {
+    triggerEmote(emoji)
+    try {
+      await addDoc(collection(db, 'room_events'), {
+        room_id: roomId,
+        type: 'emote',
+        emoji,
+        user_id: user.uid,
+        created_at: serverTimestamp()
+      })
+    } catch (err) { /* ignore */ }
   }
 
-  const sendNudge = (targetMember) => {
-    if (!channelRef.current) return
-    channelRef.current.send({
-      type: 'broadcast',
-      event: 'nudge',
-      payload: { 
+  const sendNudge = async (targetMember) => {
+    try {
+      await addDoc(collection(db, 'room_events'), {
+        room_id: roomId,
+        type: 'nudge',
         target_id: targetMember.user_id,
-        from_name: displayName
-      }
-    })
-    toast(`Nudged ${targetMember.display_name}! 🔔`, 'success')
+        from_name: displayName,
+        created_at: serverTimestamp()
+      })
+      toast(`Nudged ${targetMember.display_name}! 🔔`, 'success')
+    } catch (err) { /* ignore */ }
   }
 
   const handleReceivedNudge = (fromName) => {
@@ -320,34 +278,27 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
           ))}
         </div>
 
-        <header className="canvas-header container max-w-7xl mx-auto px-4">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-end border-b border-ink pb-4 pt-4 gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="logo-mark font-serif cursor-pointer text-4xl text-primary" onClick={() => onNavigate('dashboard')}>NN.</div>
-              <div className="sm:ml-4 sm:pl-4 border-l-0 sm:border-l border-border">
-                <h1 className="text-xl font-serif text-primary">{roomName}</h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-muted uppercase tracking-widest">Code:</span>
-                  <button
-                    className={`room-code-badge ${copied ? 'room-code-badge--copied' : ''}`}
-                    onClick={copyCode}
-                    title="Click to copy"
-                  >
-                    {roomCode} {copied ? '✓' : '⎘'}
-                  </button>
-                </div>
+        <header className="canvas-header container">
+          <div className="flex justify-between items-center border-b border-ink pb-6">
+            <div className="flex items-center gap-4 overflow-hidden">
+              <div
+                className="logo-mark font-serif text-3xl sm:text-4xl text-primary cursor-pointer flex-shrink-0"
+                onClick={onBack}
+              >
+                NN.
               </div>
-
-              <div className="sm:ml-4 sm:pl-4 flex items-center gap-3 border-l-0 sm:border-l border-border mt-2 sm:mt-0">
+              <div className="flex flex-col ml-2 overflow-hidden">
+                <h1 className="text-base sm:text-xl font-serif text-muted italic truncate">{roomName}</h1>
                 <button
                   onClick={() => setShowWhiteboard(true)}
                   className="open-whiteboard-btn"
+                  style={{ marginTop: '0.25rem' }}
                 >
                   <span>🎨</span> Open Whiteboard
                 </button>
               </div>
             </div>
-            <button onClick={onBack} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer self-start md:self-auto">
+            <button onClick={onBack} className="uppercase tracking-widest text-xs font-bold text-muted hover:text-primary transition-colors cursor-pointer self-center">
               ← Rooms
             </button>
           </div>

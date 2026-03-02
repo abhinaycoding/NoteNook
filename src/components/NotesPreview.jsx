@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
 import { EmptyArchive } from './EmptyStateIllustrations'
@@ -12,24 +13,28 @@ const NotesPreview = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchRecentNotes = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('notes')
-          .select('id, title, folder, updated_at')
-          .eq('user_id', user)
-          .order('updated_at', { ascending: false })
-          .limit(4)
-        if (error) throw error
-        if (data) setNotes(data)
-      } catch (err) {
-        console.error('Error fetching notes preview:', err.message)
-      } finally {
-        setLoading(false)
-      }
-    }
+    if (!user?.uid) return
 
-    if (user) fetchRecentNotes()
+    const q = query(
+      collection(db, 'notes'),
+      where('user_id', '==', user.uid),
+      orderBy('updated_at', 'desc'),
+      limit(4)
+    )
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      setNotes(notesData)
+      setLoading(false)
+    }, (err) => {
+      console.error('Error fetching notes preview:', err.message)
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [user])
 
   const formatDate = (dateStr) => {

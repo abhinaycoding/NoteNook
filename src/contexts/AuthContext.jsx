@@ -1,172 +1,120 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useState, useEffect, useRef, useContext, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
+import { auth, db } from '../lib/firebase'
+import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'
 
 export const AuthContext = createContext(undefined)
 
 export const AuthProvider = ({ children }) => {
-  const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [profileReady, setProfileReady] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const resolved = useRef(false)
-  const safetyTimeoutRef = useRef(null)
   const authFlowIdRef = useRef(0)
 
-  const resolveLoading = useCallback(() => {
-    if (safetyTimeoutRef.current) {
-      clearTimeout(safetyTimeoutRef.current)
-      safetyTimeoutRef.current = null
-    }
-
-    if (!resolved.current) {
-      resolved.current = true
-      setLoading(false)
-    }
-  }, [])
-
-  const clearAuthState = useCallback(() => {
-    setSession(null)
-    setUser(null)
-    setProfile(null)
-    setProfileReady(true)
-    resolveLoading()
-  }, [resolveLoading])
-
-  const hydrateProfile = useCallback(async (userId, flowId) => {
+  const hydrateProfile = useCallback(async (uid, flowId) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
+      const docRef = doc(db, 'profiles', uid)
+      const docSnap = await getDoc(docRef)
 
       if (flowId !== authFlowIdRef.current) return
 
-      if (error) {
-        console.error('Fetch profile error:', error)
-        setProfile(null)
+      if (docSnap.exists()) {
+        setProfile(docSnap.data())
       } else {
-        setProfile(data ?? null)
+        // Auto-initialize profile if it doesn't exist
+        const newProfile = {
+          id: uid,
+          updated_at: new Date().toISOString(),
+          is_pro: false,
+          student_type: 'High School',
+          full_name: auth.currentUser?.displayName || 'Scholar'
+        }
+        await setDoc(docRef, newProfile)
+        setProfile(newProfile)
       }
     } catch (err) {
       if (flowId !== authFlowIdRef.current) return
-      console.error('Fetch profile exception:', err)
+      console.warn('Profile hydration failed:', err.message)
       setProfile(null)
     } finally {
       if (flowId === authFlowIdRef.current) {
         setProfileReady(true)
-        resolveLoading()
+        setLoading(false)
       }
     }
-  }, [resolveLoading])
-
-  const applySession = useCallback(async (currentSession) => {
-    const flowId = ++authFlowIdRef.current
-
-    if (!currentSession?.access_token) {
-      clearAuthState()
-      return
-    }
-
-    // Validate token against Auth API before trusting user state.
-    const { data: userData, error: userErr } = await supabase.auth.getUser(currentSession.access_token)
-
-    if (flowId !== authFlowIdRef.current) return
-
-    if (userErr || !userData?.user) {
-      console.warn('Invalid or stale session detected. Clearing local auth state.')
-      try {
-        await supabase.auth.signOut({ scope: 'local' })
-      } catch {
-        // Ignore sign-out failures while recovering from stale tokens.
-      }
-      if (flowId === authFlowIdRef.current) {
-        clearAuthState()
-      }
-      return
-    }
-
-    setSession(currentSession)
-    setUser(userData.user)
-    setProfile(null)
-    setProfileReady(false)
-
-    await hydrateProfile(userData.user.id, flowId)
-  }, [clearAuthState, hydrateProfile])
+  }, [])
 
   useEffect(() => {
-    let isMounted = true
+    let unsubscribeProfile = null
 
-    safetyTimeoutRef.current = setTimeout(() => {
-      if (resolved.current) return
-      console.error('AuthContext: Supabase auth client is deadlocked! Clearing corrupted browser session and restarting...')
-      try {
-        localStorage.clear()
-        sessionStorage.clear()
-        window.location.reload()
-      } catch (e) {
-        resolveLoading()
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      const flowId = ++authFlowIdRef.current
+
+      if (unsubscribeProfile) {
+        unsubscribeProfile()
+        unsubscribeProfile = null
       }
-    }, 8000)
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-      if (!isMounted) return
-      await applySession(currentSession)
-    })
+      if (!firebaseUser) {
+        setUser(null)
+        setProfile(null)
+        setProfileReady(true)
+        setLoading(false)
+        return
+      }
 
-    // Fallback in case INITIAL_SESSION is delayed.
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
-      if (!isMounted) return
-      await applySession(currentSession)
-    }).catch((err) => {
-      if (!isMounted) return
-      console.error('Initial session error:', err)
-      clearAuthState()
+      setUser(firebaseUser)
+      setProfileReady(false)
+
+      // Initial hydration
+      await hydrateProfile(firebaseUser.uid, flowId)
+
+      // Set up real-time listener for profile changes (replaces multiple manual refreshes)
+      unsubscribeProfile = onSnapshot(doc(db, 'profiles', firebaseUser.uid), (snapshot) => {
+        if (flowId === authFlowIdRef.current && snapshot.exists()) {
+          setProfile(snapshot.data())
+        }
+      })
     })
 
     return () => {
-      isMounted = false
+      unsubscribeAuth()
+      if (unsubscribeProfile) unsubscribeProfile()
       authFlowIdRef.current += 1
-      if (safetyTimeoutRef.current) {
-        clearTimeout(safetyTimeoutRef.current)
-        safetyTimeoutRef.current = null
-      }
-      subscription.unsubscribe()
     }
-  }, [applySession, clearAuthState, resolveLoading])
+  }, [hydrateProfile])
 
   const signOut = async () => {
-    clearAuthState()
     try {
-      await supabase.auth.signOut()
+      await firebaseSignOut(auth)
     } catch (err) {
       console.error('Sign out error:', err)
     }
   }
 
   const refreshProfile = async () => {
-    if (!user?.id) {
+    if (!user?.uid) {
       setProfile(null)
       setProfileReady(true)
       return
     }
-
     const flowId = ++authFlowIdRef.current
     setProfileReady(false)
-    await hydrateProfile(user.id, flowId)
+    await hydrateProfile(user.uid, flowId)
   }
 
   const value = {
-    session,
     user,
     profile,
     profileReady,
     loading,
     signOut,
     refreshProfile,
+    // session is maintained as undefined/null for compat, firebase uses currentUser
+    session: user ? { user } : null 
   }
 
   return (

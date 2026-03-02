@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db } from '../lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
 import '../pages/Dashboard.css'
@@ -62,19 +63,22 @@ const AnalyticsCards = () => {
   const quote = Array.isArray(quotes) ? quotes[new Date().getDay() % quotes.length] : quotes
 
   const fetchStats = async () => {
-    if (!user) return
+    if (!user?.uid) return
     try {
       const today = new Date(); today.setHours(0, 0, 0, 0)
 
-      const [{ data: sessions }, { data: allTasks }] = await Promise.all([
-        supabase.from('sessions').select('duration_seconds').eq('user_id', user.id).gte('created_at', today.toISOString()),
-        supabase.from('tasks').select('id, completed, due_date').eq('user_id', user.id),
+      const [sessSnap, taskSnap] = await Promise.all([
+        getDocs(query(collection(db, 'sessions'), where('user_id', '==', user.uid), where('created_at', '>=', today.toISOString()))),
+        getDocs(query(collection(db, 'tasks'), where('user_id', '==', user.uid)))
       ])
 
+      const sessions = sessSnap.docs.map(doc => doc.data())
+      const allTasks = taskSnap.docs.map(doc => doc.data())
+
       // Harmonized filter with TaskPlanner
-      const filteredTasks = (allTasks || []).filter(t => t.due_date !== 'goal' && t.due_date !== 'syllabus')
+      const filteredTasks = allTasks.filter(t => t.due_date !== 'goal' && t.due_date !== 'syllabus')
       
-      const totalSeconds = (sessions || []).reduce((s, r) => s + (r.duration_seconds || 0), 0)
+      const totalSeconds = sessions.reduce((s, r) => s + (r.duration_seconds || 0), 0)
       const completedCount = filteredTasks.filter(t => t.completed).length
       const totalCount = filteredTasks.length
 
@@ -93,7 +97,7 @@ const AnalyticsCards = () => {
   }
 
   useEffect(() => {
-    if (user) {
+    if (user?.uid) {
       fetchStats()
 
       const handleUpdate = () => fetchStats()
@@ -105,7 +109,7 @@ const AnalyticsCards = () => {
         window.removeEventListener('session-saved', handleUpdate)
       }
     }
-  }, [user])
+  }, [user?.uid])
 
   if (loading) {
     return (
