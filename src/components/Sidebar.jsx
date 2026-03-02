@@ -201,6 +201,13 @@ const Sidebar = ({ activeTab, onNavigate }) => {
               )}
               <button 
                 className="sub-panel-item flex items-center gap-2 p-3 bg-white/5 rounded-md"
+                onClick={() => { handleNav('profile') }}
+              >
+                <span style={{ fontSize: '1rem' }}>👤</span>
+                My Profile
+              </button>
+              <button 
+                className="sub-panel-item flex items-center gap-2 p-3 bg-white/5 rounded-md"
                 onClick={() => { setThemePanelOpen(true); setMobileMenuOpen(false); }}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon w-5 h-5">

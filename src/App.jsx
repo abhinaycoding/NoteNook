@@ -12,6 +12,7 @@ import PricingPage from './pages/PricingPage'
 import CalendarPage from './pages/CalendarPage'
 import StudyRoomsListPage from './pages/StudyRoomsListPage'
 import StudyRoomPage from './pages/StudyRoomPage'
+import PublicProfilePage from './pages/PublicProfilePage'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
 import ZenMode from './components/ZenMode'
@@ -99,7 +100,7 @@ function App() {
           </ProtectedRoute>
         )}
 
-        {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume'].includes(pageToRender)) && (
+        {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile'].includes(pageToRender)) && (
           <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
             <Layout onNavigate={navigateTo} activeTab={pageToRender} fullBleed={pageToRender === 'room'}>
 
@@ -126,6 +127,9 @@ function App() {
                 <ProGate feature="Resume Builder" onNavigatePricing={navigateTo}>
                   <ResumeBuilderPage onNavigate={navigateTo} />
                 </ProGate>
+              )}
+              {pageToRender === 'profile' && (
+                <PublicProfilePage onNavigate={navigateTo} />
               )}
             </Layout>
           </ProtectedRoute>
