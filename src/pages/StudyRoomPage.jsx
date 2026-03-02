@@ -86,14 +86,8 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
     if (!user?.uid || !roomId) return
 
     const updatePresence = async () => {
-      const q = query(
-        collection(db, 'room_members'), 
-        where('room_id', '==', roomId),
-        where('user_id', '==', user.uid)
-      )
-      const snap = await getDocs(q)
-      if (!snap.empty) {
-        await updateDoc(doc(db, 'room_members', snap.docs[0].id), {
+      try {
+        await updateDoc(doc(db, 'room_members', `${roomId}_${user.uid}`), {
           display_name: displayName,
           avatar_id: profile?.avatar_id || 'owl',
           timer_status: isRunning ? 'focusing' : isComplete ? 'done' : 'idle',
@@ -101,6 +95,20 @@ const StudyRoomPage = ({ roomId, roomName, onNavigate, onBack }) => {
           is_zen: isZenModeActive,
           active_track_id: activeTrackId || null,
           last_seen: serverTimestamp()
+        })
+      } catch (err) {
+        // If doc doesn't exist, create it (safe fallback)
+        await setDoc(doc(db, 'room_members', `${roomId}_${user.uid}`), {
+          room_id: roomId,
+          user_id: user.uid,
+          display_name: displayName,
+          avatar_id: profile?.avatar_id || 'owl',
+          timer_status: isRunning ? 'focusing' : isComplete ? 'done' : 'idle',
+          seconds_left: secondsLeft,
+          is_zen: isZenModeActive,
+          active_track_id: activeTrackId || null,
+          last_seen: serverTimestamp(),
+          joined_at: new Date().toISOString()
         })
       }
     }

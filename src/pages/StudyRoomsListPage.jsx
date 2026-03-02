@@ -68,7 +68,7 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
       
       await setDoc(doc(db, 'study_rooms', roomId), { id: roomId }, { merge: true })
 
-      await addDoc(collection(db, 'room_members'), {
+      await setDoc(doc(db, 'room_members', `${roomId}_${user.uid}`), {
         room_id: roomId,
         user_id: user.uid,
         joined_at: new Date().toISOString()
@@ -109,7 +109,7 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
       const memberSnap = await getDocs(memberQ)
 
       if (memberSnap.empty) {
-        await addDoc(collection(db, 'room_members'), {
+        await setDoc(doc(db, 'room_members', `${room.id}_${user.uid}`), {
           room_id: room.id,
           user_id: user.uid,
           joined_at: new Date().toISOString()
@@ -132,13 +132,7 @@ const StudyRoomsListPage = ({ onNavigate, onEnterRoom }) => {
     e.stopPropagation()
     if (!user?.uid) return
     try {
-      const q = query(
-        collection(db, 'room_members'), 
-        where('room_id', '==', roomId),
-        where('user_id', '==', user.uid)
-      )
-      const snap = await getDocs(q)
-      snap.forEach(async (d) => await deleteDoc(doc(db, 'room_members', d.id)))
+      await deleteDoc(doc(db, 'room_members', `${roomId}_${user.uid}`))
       
       setMyRooms(prev => prev.filter(r => r.id !== roomId))
       toast('Left the room.', 'success')
