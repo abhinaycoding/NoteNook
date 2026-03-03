@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import { db } from '../lib/firebase'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import React, { useState, useEffect, useRef } from 'react'
+import { db, storage } from '../lib/firebase'
+import { doc, setDoc, collection, query, where, getDocs } from 'firebase/firestore'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext'
 import { LEVELS } from '../components/XPBar'
@@ -36,12 +37,36 @@ const getLevel = (xp) => {
 }
 
 const PublicProfilePage = ({ onNavigate }) => {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const { isPro } = usePlan()
 
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+  const photoInputRef = useRef(null)
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.uid) return
+    if (file.size > 2 * 1024 * 1024) { setPhotoError('Image must be under 2MB'); return }
+    setPhotoError('')
+    setUploadingPhoto(true)
+    try {
+      const storageRef = ref(storage, `avatars/${user.uid}`)
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      await setDoc(doc(db, 'profiles', user.uid), { photo_url: url }, { merge: true })
+      await refreshProfile()
+    } catch (err) {
+      console.error(err)
+      setPhotoError('Upload failed. Make sure Firebase Storage is set up.')
+    } finally {
+      setUploadingPhoto(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
 
   const xp = parseInt(localStorage.getItem('notenook_xp') || '0', 10)
   const earnedBadgeIds = (() => {
@@ -161,17 +186,57 @@ const PublicProfilePage = ({ onNavigate }) => {
           position: 'relative', zIndex: 1, padding: '3.5rem 2rem 2rem',
           display: 'flex', alignItems: 'flex-end', gap: '1.25rem',
         }}>
-          {/* Avatar with cosmetic border */}
-          <div
-            className={`pcp-border-preview-avatar ${borderClass}`}
-            style={{
-              width: 88, height: 88, borderRadius: '50%',
-              background: `linear-gradient(135deg, ${themeColor}, #ff8800)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '2.6rem', flexShrink: 0, border: '3px solid rgba(255,255,255,0.2)',
-            }}
-          >
-            {profile?.avatar_emoji || profile?.full_name?.[0] || '🎓'}
+          {/* Avatar with cosmetic border + click-to-upload */}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <div
+              className={`pcp-border-preview-avatar ${borderClass}`}
+              style={{
+                width: 88, height: 88, borderRadius: '50%',
+                background: `linear-gradient(135deg, ${themeColor}, #ff8800)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '2.6rem', overflow: 'hidden',
+                border: '3px solid rgba(255,255,255,0.2)',
+                cursor: 'pointer',
+              }}
+              onClick={() => photoInputRef.current?.click()}
+              title="Click to change profile picture"
+            >
+              {profile?.photo_url ? (
+                <img src={profile.photo_url} alt="PFP" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                profile?.avatar_emoji || profile?.full_name?.[0] || '🎓'
+              )}
+            </div>
+            {/* Camera badge */}
+            <label
+              htmlFor="pfp-upload"
+              title="Change photo"
+              style={{
+                position: 'absolute', bottom: 2, right: 2,
+                width: 24, height: 24, borderRadius: '50%',
+                background: themeColor, border: '2px solid #fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', fontSize: '0.65rem',
+              }}
+            >
+              {uploadingPhoto ? '⏳' : '📷'}
+            </label>
+            <input
+              id="pfp-upload"
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handlePhotoUpload}
+              disabled={uploadingPhoto}
+            />
+            {photoError && (
+              <div style={{
+                position: 'absolute', top: '110%', left: '50%', transform: 'translateX(-50%)',
+                background: '#cc4b2c', color: '#fff', fontSize: '0.55rem', fontWeight: 700,
+                padding: '0.3rem 0.6rem', borderRadius: 6, whiteSpace: 'nowrap', zIndex: 10,
+              }}>{photoError}</div>
+            )}
           </div>
 
           <div style={{ flex: 1 }}>
