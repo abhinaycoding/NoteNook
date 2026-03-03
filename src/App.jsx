@@ -15,6 +15,7 @@ import StudyRoomPage from './pages/StudyRoomPage'
 import PublicProfilePage from './pages/PublicProfilePage'
 import ProfileCustomizerPage from './pages/ProfileCustomizerPage'
 import AdminDashboard from './pages/AdminDashboard'
+import SettingsPage from './pages/SettingsPage'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
 import ZenMode from './components/ZenMode'
@@ -119,7 +120,7 @@ function App() {
             </ProtectedRoute>
           )}
 
-          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'customize', 'admin'].includes(pageToRender)) && (
+          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'customize', 'admin', 'settings'].includes(pageToRender)) && (
             <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
               {pageToRender === 'admin' ? (
                 <AdminRoute user={user} profile={profile} isAdmin={profile?.isAdmin} profileReady={profileReady} onRedirect={navigateTo}>
@@ -157,6 +158,9 @@ function App() {
                 )}
                 {pageToRender === 'customize' && (
                   <ProfileCustomizerPage onNavigate={navigateTo} />
+                )}
+                {pageToRender === 'settings' && (
+                  <SettingsPage onNavigate={navigateTo} />
                 )}
               </Layout>
               )}
