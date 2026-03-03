@@ -76,20 +76,28 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (resource.data.user_id == request.auth.uid || isMember(resource.data.room_id));
     }
     match /room_whiteboard/{whiteboardId} {
-      allow read, write: if request.auth != null && isMember(resource.data.room_id);
+      allow read: if request.auth != null && isMember(resource.data.room_id);
+      allow create: if request.auth != null && isMember(request.resource.data.room_id);
+      allow update, delete: if request.auth != null && isMember(resource.data.room_id);
     }
     match /room_tasks/{taskId} {
-      allow read, write: if request.auth != null && isMember(resource.data.room_id);
+      allow read: if request.auth != null && isMember(resource.data.room_id);
+      allow create: if request.auth != null && isMember(request.resource.data.room_id);
+      allow update, delete: if request.auth != null && isMember(resource.data.room_id);
     }
     match /room_events/{eventId} {
-      allow read, write: if request.auth != null && isMember(resource.data.room_id);
+      allow read: if request.auth != null && isMember(resource.data.room_id);
+      allow create: if request.auth != null && isMember(request.resource.data.room_id);
+      allow update, delete: if request.auth != null && isMember(resource.data.room_id);
     }
     match /promo_codes/{docId} {
       allow read, write: if true;
     }
 
     match /room_typing/{typingId} {
-      allow read, write: if request.auth != null && isMember(resource.data.room_id);
+      allow read: if request.auth != null && isMember(resource.data.room_id);
+      allow create: if request.auth != null && isMember(request.resource.data.room_id);
+      allow update, delete: if request.auth != null && isMember(resource.data.room_id);
     }
   }
 }
