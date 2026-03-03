@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import {
-  collection, query, orderBy, limit, onSnapshot,
+  collection, query, orderBy, limit, onSnapshot, where,
   doc, updateDoc, deleteDoc, serverTimestamp, setDoc, getDocs, addDoc
 } from 'firebase/firestore';
 import { useToast } from '../contexts/ToastContext';
@@ -11,51 +11,98 @@ import './AdminDashboard.css';
 const AdminDashboard = ({ onNavigate }) => {
   const { user } = useAuth();
   const toast = useToast();
-  const [metrics, setMetrics] = useState({ totalRevenue: 0, totalUsers: 0, activeRooms: 0, masterUsers: 0, totalTasks: 0, totalSessions: 0 });
+  const [metrics, setMetrics] = useState({ 
+    totalRevenue: 0, 
+    dailyRevenue: 0,
+    weeklyRevenue: 0,
+    totalUsers: 0, 
+    activeRooms: 0, 
+    masterUsers: 0, 
+    totalTasks: 0, 
+    totalSessions: 0,
+    liveScholars: 0
+  });
   const [payments, setPayments] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [users, setUsers] = useState([]);
   const [recentUsers, setRecentUsers] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
   const [promoCodes, setPromoCodes] = useState([]);
+  const [liveActivity, setLiveActivity] = useState([]);
+  const [systemLogs, setSystemLogs] = useState([]);
   const [newPromo, setNewPromo] = useState({ code: '', discount: 10 });
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [broadcast, setBroadcast] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [userSearch, setUserSearch] = useState('');
+  const [masterSearch, setMasterSearch] = useState('');
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState(false);
 
   useEffect(() => {
+    // 1. Payments & Revenue breakdown
     const unsubPayments = onSnapshot(
-      query(collection(db, 'payments'), orderBy('timestamp', 'desc'), limit(20)),
+      query(collection(db, 'payments'), orderBy('timestamp', 'desc')),
       (snap) => {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setPayments(list);
-        setMetrics(p => ({ ...p, totalRevenue: list.reduce((a, c) => a + (c.amount || 0), 0) }));
+        
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const weekAgo = today - (7 * 24 * 60 * 60 * 1000);
+
+        const total = list.reduce((a, c) => a + (c.amount || 0), 0);
+        const day = list.filter(p => {
+          const t = p.timestamp?.toDate?.()?.getTime() || 0;
+          return t >= today;
+        }).reduce((a, c) => a + (c.amount || 0), 0);
+        
+        const week = list.filter(p => {
+          const t = p.timestamp?.toDate?.()?.getTime() || 0;
+          return t >= weekAgo;
+        }).reduce((a, c) => a + (c.amount || 0), 0);
+
+        setMetrics(p => ({ ...p, totalRevenue: total, dailyRevenue: day, weeklyRevenue: week }));
       }, err => console.warn('payments:', err.message)
     );
 
+    // 2. Profiles & Recent activity
     const unsubProfiles = onSnapshot(
       query(collection(db, 'profiles')),
       (snap) => {
         const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const sorted = [...all].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+        const sorted = [...all]
+          .filter(u => u.updated_at)
+          .sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+        
         setUsers(all);
-        setRecentUsers(sorted.slice(0, 8));
+        setRecentUsers(sorted.slice(0, 10));
         setMetrics(p => ({ ...p, totalUsers: snap.size, masterUsers: all.filter(u => u.is_pro).length }));
       }, err => console.warn('profiles:', err.message)
     );
 
+    // 3. Live Activity Monitor
+    const twentyMins = new Date(Date.now() - 20 * 60 * 1000);
+    const unsubLive = onSnapshot(
+      query(collection(db, 'room_members'), where('last_seen', '>=', twentyMins)),
+      (snap) => {
+        const live = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setLiveActivity(live);
+        setMetrics(p => ({ ...p, liveScholars: new Set(live.map(l => l.user_id)).size }));
+      }
+    );
+
+    // 4. Rooms
     const unsubRooms = onSnapshot(
-      query(collection(db, 'study_rooms'), limit(20)),
+      query(collection(db, 'study_rooms'), limit(50)),
       (snap) => {
         setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         setMetrics(p => ({ ...p, activeRooms: snap.size }));
       }, err => console.warn('rooms:', err.message)
     );
 
+    // 5. Support Tickets
     const unsubTickets = onSnapshot(
       query(collection(db, 'support_tickets'), orderBy('created_at', 'desc')),
       (snap) => {
@@ -63,6 +110,7 @@ const AdminDashboard = ({ onNavigate }) => {
       }, err => console.warn('tickets:', err.message)
     );
 
+    // 6. Global Settings
     const unsubSettings = onSnapshot(
       doc(db, 'settings', 'global'),
       (snap) => {
@@ -70,6 +118,7 @@ const AdminDashboard = ({ onNavigate }) => {
       }, err => console.warn('settings:', err.message)
     );
 
+    // 7. Promo Codes
     const unsubPromos = onSnapshot(
       collection(db, 'promo_codes'),
       (snap) => {
@@ -77,19 +126,22 @@ const AdminDashboard = ({ onNavigate }) => {
       }, err => console.warn('promos:', err.message)
     );
 
-    // Platform stats
-    const fetchStats = async () => {
+    // Platform totals (Background)
+    const fetchTotals = async () => {
       try {
-        const [tasks, sessions] = await Promise.all([
-          getDocs(query(collection(db, 'tasks'), limit(1000))),
-          getDocs(query(collection(db, 'sessions'), limit(1000)))
+        const [tasks, notes] = await Promise.all([
+          getDocs(query(collection(db, 'tasks'), limit(500))),
+          getDocs(query(collection(db, 'notes'), limit(500)))
         ]);
-        setMetrics(p => ({ ...p, totalTasks: tasks.size, totalSessions: sessions.size }));
-      } catch (e) { /* silent */ }
+        setMetrics(p => ({ ...p, totalTasks: tasks.size, totalNotes: notes.size }));
+      } catch (e) { /* ignore */ }
     };
-    fetchStats();
+    fetchTotals();
 
-    return () => { unsubPayments(); unsubProfiles(); unsubRooms(); unsubTickets(); unsubSettings(); unsubPromos(); };
+    return () => { 
+      unsubPayments(); unsubProfiles(); unsubRooms(); unsubTickets(); 
+      unsubSettings(); unsubPromos(); unsubLive();
+    };
   }, []);
 
   const handleUnlock = async (e) => {
@@ -116,20 +168,24 @@ const AdminDashboard = ({ onNavigate }) => {
   };
 
   const handleCreatePromo = async () => {
-    if (!newPromo.code || !newPromo.discount) return;
+    if (!newPromo.code) return toast('Protocol Error: Code Name Required', 'error');
+    const discountValue = Number(newPromo.discount);
+    if (isNaN(discountValue) || discountValue < 0 || discountValue > 100) {
+      return toast('Validation Error: Discount must be 0-100%', 'error');
+    }
+
     try {
-      console.log('Attempting to create promo with user:', user?.uid);
       await addDoc(collection(db, 'promo_codes'), {
-        code: newPromo.code.toUpperCase(),
-        discount_pct: Number(newPromo.discount),
+        code: newPromo.code.toUpperCase().trim(),
+        discount_pct: discountValue,
         active: true,
         created_at: serverTimestamp()
       });
-      toast('Promo code created!', 'success');
+      toast(`Deployment Successful: ${newPromo.code.toUpperCase()} active.`, 'success');
       setNewPromo({ code: '', discount: 10 });
     } catch (err) { 
       console.error('PROMO_CREATE_ERROR:', err);
-      toast(`Failed: ${err.message || 'Permission denied'}`, 'error'); 
+      toast(`Deployment Failed: ${err.message}`, 'error'); 
     }
   };
 
@@ -188,392 +244,368 @@ const AdminDashboard = ({ onNavigate }) => {
     !userSearch || (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase())
   );
 
+  const globalSearchItems = [
+    ...users.map(u => ({ type: 'User', name: u.full_name, id: u.id, sub: u.student_type, link: 'users' })),
+    ...rooms.map(r => ({ type: 'Room', name: r.name, id: r.id, sub: r.code, link: 'rooms' })),
+    ...payments.map(p => ({ type: 'Payment', name: `₹${p.amount} from ${p.userName}`, id: p.id, sub: p.razorpay_payment_id, link: 'payments' }))
+  ].filter(item => 
+    !masterSearch || 
+    (item.name || '').toLowerCase().includes(masterSearch.toLowerCase()) || 
+    (item.id || '').toLowerCase().includes(masterSearch.toLowerCase())
+  );
+
   const convRate = metrics.totalUsers ? ((metrics.masterUsers / metrics.totalUsers) * 100).toFixed(1) : '0.0';
-
-
 
   if (!isUnlocked) {
     return (
-      <div className="admin-lock-screen">
-        <div className="admin-lock-box">
-          <div className="admin-lock-icon">🔒</div>
-          <h1 className="admin-lock-title">RESTRICTED ACCESS</h1>
-          <p className="admin-lock-subtitle">Enter Owner Authorization Code</p>
-          
-          <form onSubmit={handleUnlock} className="admin-lock-form">
-            <input 
-              type="password" 
-              className={`admin-passcode-input ${passcodeError ? 'error' : ''}`}
-              placeholder="••••"
-              maxLength={4}
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              autoFocus
-            />
-            <button type="submit" className="admin-btn">AUTHORIZE</button>
-          </form>
-
-          {passcodeError && <div className="admin-lock-error">ACCESS DENIED</div>}
-
-          <button className="admin-abort-btn" onClick={() => onNavigate('dashboard')}>
-            ← Abort & Return
-          </button>
+      <div className="citadel-theme">
+        <div className="admin-lock-screen">
+          <div className="admin-lock-box">
+            <div className="admin-lock-icon">🔒</div>
+            <h1 className="admin-lock-title">RESTRICTED ACCESS</h1>
+            <p className="admin-lock-subtitle">Enter Owner Authorization Code</p>
+            <form onSubmit={handleUnlock} className="admin-lock-form">
+              <input 
+                type="password" 
+                className={`admin-passcode-input ${passcodeError ? 'error' : ''}`}
+                placeholder="••••"
+                maxLength={4}
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                autoFocus
+              />
+              <button type="submit" className="admin-btn">AUTHORIZE</button>
+            </form>
+            {passcodeError && <div className="admin-lock-error">ACCESS DENIED</div>}
+            <button className="admin-abort-btn" onClick={() => onNavigate('dashboard')}>
+              ← Abort & Return
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  const earningsPerScholar = metrics.totalUsers ? (metrics.totalRevenue / metrics.totalUsers).toFixed(2) : '0.00';
+
   return (
-    <div className="admin-dashboard">
-      {/* Hero */}
-      <section className="admin-hero">
-        <div className="container">
-          <div className="admin-title-group" style={{ display: 'flex', alignItems: 'center' }}>
-            <div className="admin-status-blink" />
-            <h1 className="text-4xl font-serif italic m-0">Owner Command Center</h1>
-            <span className="admin-mono text-xs opacity-40 ml-4">SECURE SESSION ACTIVE</span>
-            <button 
-              className="admin-action-btn ml-auto flex items-center gap-2" 
-              style={{ padding: '0.6rem 1.2rem', background: 'rgba(239, 68, 68, 0.1)', borderColor: '#ef4444', color: '#ef4444' }}
-              onClick={() => onNavigate('dashboard')}
+    <div className="citadel-theme">
+      <div className="citadel-layout">
+        {/* ── Sidebar Navigation ── */}
+        <aside className="citadel-sidebar">
+          <div className="sidebar-brand">
+            <h1 className="citadel-title">Command</h1>
+            <span className="citadel-version">v2.5</span>
+          </div>
+
+          <nav className="sidebar-nav">
+            <button
+              className={`nav-item ${activeTab === 'overview' ? 'sidebar-active' : ''}`}
+              onClick={() => setActiveTab('overview')}
             >
-              <span>← DISCONNECT & RETURN</span>
+              <span className="icon">📊</span> Overview
+            </button>
+            <button
+              className={`nav-item ${activeTab === 'scholars' ? 'sidebar-active' : ''}`}
+              onClick={() => setActiveTab('scholars')}
+            >
+              <span className="icon">👥</span> Scholars
+            </button>
+            <button
+              className={`nav-item ${activeTab === 'rooms' ? 'sidebar-active' : ''}`}
+              onClick={() => setActiveTab('rooms')}
+            >
+              <span className="icon">🏠</span> Study Rooms
+            </button>
+            <button
+              className={`nav-item ${activeTab === 'promos' ? 'sidebar-active' : ''}`}
+              onClick={() => setActiveTab('promos')}
+            >
+              <span className="icon">🏷️</span> Promo Codes
+            </button>
+            <button
+              className={`nav-item ${activeTab === 'support' ? 'sidebar-active' : ''}`}
+              onClick={() => setActiveTab('support')}
+            >
+              <span className="icon">🎧</span> Support
+            </button>
+            <button
+              className={`nav-item ${activeTab === 'system' ? 'sidebar-active' : ''}`}
+              onClick={() => setActiveTab('system')}
+            >
+              <span className="icon">⚙️</span> System
+            </button>
+          </nav>
+
+          <div className="sidebar-footer">
+            <button className="citadel-btn-main secondary w-full" onClick={() => onNavigate('dashboard')}>
+              ← Exit Command
             </button>
           </div>
-          <div className="admin-tabs">
-            {['overview', 'users', 'payments', 'rooms', 'promos', 'inbox', 'broadcast'].map(t => (
-              <button key={t} className={`admin-tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
-                {t === 'inbox' && supportTickets.filter(tkt => !tkt.resolved).length > 0 && <span className="admin-badge-red mr-2">{supportTickets.filter(tkt => !tkt.resolved).length}</span>}
-                {t === 'promos' ? 'Promo Codes' : t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+        </aside>
 
-      <div className="container">
-        {/* ── Metric Cards (always visible) ── */}
-        <div className="admin-metrics-grid">
-          {[
-            { label: 'Revenue', value: `₹${metrics.totalRevenue}`, trend: 'Platform Total' },
-            { label: 'Scholars', value: metrics.totalUsers, trend: 'Total Enrolled' },
-            { label: 'Master Users', value: metrics.masterUsers, trend: `${convRate}% Conversion` },
-            { label: 'Active Rooms', value: metrics.activeRooms, trend: 'Live Sessions' },
-            { label: 'Total Tasks', value: metrics.totalTasks, trend: 'Across Platform' },
-            { label: 'Focus Sessions', value: metrics.totalSessions, trend: 'Logged' },
-          ].map(m => (
-            <div key={m.label} className="admin-metric-card">
-              <span className="admin-metric-label">{m.label}</span>
-              <div className="admin-metric-value">{m.value}</div>
-              <div className="admin-metric-trend">{m.trend}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Overview Tab ── */}
-        {activeTab === 'overview' && (
-          <div className="admin-main-grid">
-            {/* Recent Transactions */}
-            <div className="admin-panel">
-              <div className="admin-panel-header">
-                <h2 className="admin-panel-title">Recent Transactions</h2>
-                <button className="text-[10px] uppercase font-bold text-primary hover:underline" onClick={() => setActiveTab('payments')}>View All →</button>
-              </div>
-              <div className="admin-table-container">
-                <table className="admin-table">
-                  <thead><tr><th>Scholar</th><th>Amount</th><th>Status</th></tr></thead>
-                  <tbody>
-                    {payments.slice(0, 5).map(pay => (
-                      <tr key={pay.id}>
-                        <td>
-                          <div className="font-bold">{pay.userName || 'Anonymous'}</div>
-                          <div className="text-[10px] opacity-50">{pay.userEmail}</div>
-                        </td>
-                        <td className="font-bold">₹{pay.amount}</td>
-                        <td><span className="admin-badge-green">{pay.status}</span></td>
-                      </tr>
-                    ))}
-                    {payments.length === 0 && (
-                      <tr><td colSpan="3" className="text-center py-8 opacity-40 italic">Waiting for first transaction...</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Recent Sign-ups */}
-            <div className="admin-panel">
-              <div className="admin-panel-header">
-                <h2 className="admin-panel-title">Recent Sign-ups</h2>
-                <span className="admin-mono text-[10px] opacity-50">NEW SCHOLARS</span>
-              </div>
-              <div className="admin-feed">
-                {recentUsers.map(u => (
-                  <div key={u.id} className="admin-feed-item">
-                    <div className="admin-avatar">{(u.full_name || '?')[0]}</div>
-                    <div className="flex-1">
-                      <div className="font-bold text-sm">{u.full_name}</div>
-                      <div className="text-[10px] opacity-50">{u.student_type}</div>
-                    </div>
-                    {u.is_pro && <span className="admin-badge-pro">PRO</span>}
-                  </div>
-                ))}
-                {recentUsers.length === 0 && <div className="text-center py-8 opacity-40 italic text-sm">No scholars yet.</div>}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Users Tab ── */}
-        {activeTab === 'users' && (
-          <div className="admin-panel">
-            <div className="admin-panel-header">
-              <h2 className="admin-panel-title">User Management</h2>
+        {/* ── Main Content Area ── */}
+        <main className="citadel-main">
+          <header className="citadel-top-bar">
+            <div className="search-box">
+              <span className="icon">🔍</span>
               <input
-                className="admin-search"
-                placeholder="Search by name..."
+                type="text"
+                placeholder={`Search in ${activeTab}...`}
                 value={userSearch}
                 onChange={e => setUserSearch(e.target.value)}
               />
             </div>
-            <div className="admin-table-container">
-              <table className="admin-table">
-                <thead><tr><th>Name</th><th>Type</th><th>Plan</th><th>Action</th></tr></thead>
-                <tbody>
-                  {filteredUsers.map(u => (
-                    <tr key={u.id}>
-                      <td className="font-bold">{u.full_name || 'Unknown'}</td>
-                      <td className="text-xs opacity-60">{u.student_type || '—'}</td>
-                      <td>{u.is_pro ? <span className="admin-badge-pro">MASTER</span> : <span className="admin-badge-free">SCHOLAR</span>}</td>
-                      <td>
-                        <button
-                          className={`admin-action-btn ${u.is_pro ? 'revoke' : 'grant'}`}
-                          onClick={() => handleGrantPro(u.id, !u.is_pro)}
-                        >
-                          {u.is_pro ? 'Revoke Pro' : 'Grant Pro'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── Payments Tab (Detailed View) ── */}
-        {activeTab === 'payments' && (
-          <div className="admin-panel">
-            <div className="admin-panel-header">
-              <h2 className="admin-panel-title">Full Payment History</h2>
-              <div className="admin-mono text-[10px] opacity-50">{payments.length} TRANSACTIONS</div>
-            </div>
-            <div className="admin-table-container">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Scholar</th>
-                    <th>Email</th>
-                    <th>Razorpay ID</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map(pay => (
-                    <tr key={pay.id}>
-                      <td className="text-xs opacity-60">
-                        {pay.timestamp?.seconds 
-                          ? new Date(pay.timestamp.seconds * 1000).toLocaleDateString() 
-                          : 'Pending'}
-                      </td>
-                      <td className="font-bold">{pay.userName || 'Scholar'}</td>
-                      <td className="text-xs">{pay.userEmail}</td>
-                      <td className="admin-mono text-xs opacity-50">{pay.razorpay_payment_id}</td>
-                      <td className="font-bold text-primary">₹{pay.amount}</td>
-                      <td><span className="admin-badge-green">CAPTURED</span></td>
-                    </tr>
-                  ))}
-                  {payments.length === 0 && (
-                    <tr><td colSpan="6" className="text-center py-12 opacity-40 italic">No payments logged yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── Rooms Tab ── */}
-        {activeTab === 'rooms' && (
-          <div className="admin-panel">
-            <div className="admin-panel-header">
-              <h2 className="admin-panel-title">Room Monitor</h2>
-              <span className="admin-mono text-[10px] opacity-50">{rooms.length} ACTIVE</span>
-            </div>
-            <div className="admin-table-container">
-              <table className="admin-table">
-                <thead><tr><th>Room Name</th><th>Code</th><th>Type</th><th>Action</th></tr></thead>
-                <tbody>
-                  {rooms.map(r => (
-                    <tr key={r.id}>
-                      <td className="font-bold">{r.name}</td>
-                      <td className="admin-mono text-xs">{r.code}</td>
-                      <td className="text-xs opacity-60 capitalize">{r.type || 'standard'}</td>
-                      <td>
-                        <button className="admin-action-btn revoke" onClick={() => handleDeleteRoom(r.id)}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                  {rooms.length === 0 && <tr><td colSpan="4" className="text-center py-8 opacity-40 italic">No active rooms.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── Promos Tab ── */}
-        {activeTab === 'promos' && (
-          <div className="admin-panel">
-            <div className="admin-panel-header">
-              <h2 className="admin-panel-title">Promo Code Manager</h2>
-              <span className="admin-mono text-[10px] opacity-50">{promoCodes.length} CODES</span>
-            </div>
-            
-            <div className="mb-8 p-6 bg-[#00000020] border-2 border-black">
-              <h3 className="text-xs font-black uppercase mb-4 tracking-tighter">Create New Code</h3>
-              <div className="flex gap-4 items-end">
-                <div className="flex-1">
-                  <label className="text-[10px] font-bold opacity-60 uppercase block mb-1">Code Name</label>
-                  <input 
-                    type="text" 
-                    className="admin-input uppercase" 
-                    placeholder="E.G. SAVE50"
-                    value={newPromo.code}
-                    onChange={e => setNewPromo(p => ({ ...p, code: e.target.value }))}
-                  />
-                </div>
-                <div className="w-32">
-                  <label className="text-[10px] font-bold opacity-60 uppercase block mb-1">Discount %</label>
-                  <input 
-                    type="number" 
-                    className="admin-input" 
-                    placeholder="50"
-                    value={newPromo.discount}
-                    onChange={e => setNewPromo(p => ({ ...p, discount: e.target.value }))}
-                  />
-                </div>
-                <button className="admin-action-btn grant h-[42px]" onClick={handleCreatePromo}>Deploy Code</button>
+            <div className="top-bar-stats">
+              <div className="stat">
+                <span className="dot green pulse"></span>
+                {metrics.liveScholars} Scholars Live
               </div>
             </div>
+          </header>
 
-            <div className="admin-table-container">
-              <table className="admin-table">
-                <thead><tr><th>Code</th><th>Discount</th><th>Status</th><th>Action</th></tr></thead>
-                <tbody>
-                  {promoCodes.map(c => (
-                    <tr key={c.id}>
-                      <td className="font-bold admin-mono">{c.code}</td>
-                      <td className="font-black text-primary">{c.discount_pct}% OFF</td>
-                      <td>
-                        {c.active ? <span className="admin-badge-green">ACTIVE</span> : <span className="admin-badge-red text-[8px]">INACTIVE</span>}
-                      </td>
-                      <td>
-                        <button 
-                          className={`admin-action-btn ${c.active ? 'revoke' : 'grant'}`} 
-                          onClick={() => handleTogglePromo(c.id, c.active)}
-                        >
-                          {c.active ? 'Deactivate' : 'Activate'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {promoCodes.length === 0 && <tr><td colSpan="4" className="text-center py-8 opacity-40 italic">No promo codes created yet.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+          <div className="citadel-viewport">
+            {activeTab === 'overview' && (
+              <div className="section-fade-in">
+                <div className="citadel-metrics-summary">
+                  <div className="citadel-metric-card">
+                    <span className="label">Total Revenue</span>
+                    <div className="value">₹{metrics.totalRevenue}</div>
+                    <div className="card-bg-icon">💰</div>
+                  </div>
+                  <div className="citadel-metric-card">
+                    <span className="label">Active Scholars</span>
+                    <div className="value">{metrics.totalUsers}</div>
+                    <div className="card-bg-icon">👥</div>
+                  </div>
+                  <div className="citadel-metric-card">
+                    <span className="label">Pro Deployments</span>
+                    <div className="value">{metrics.masterUsers}</div>
+                    <div className="card-bg-icon">🛡️</div>
+                  </div>
+                  <div className="citadel-metric-card">
+                    <span className="label">Daily Earnings</span>
+                    <div className="value">₹{metrics.dailyRevenue}</div>
+                    <div className="card-bg-icon">📈</div>
+                  </div>
+                </div>
 
-        {/* ── Inbox Tab ── */}
-        {activeTab === 'inbox' && (
-          <div className="admin-panel">
-            <div className="admin-panel-header">
-              <h2 className="admin-panel-title">Support Inbox</h2>
-              <span className="admin-mono text-[10px] opacity-50">{supportTickets.filter(t => !t.resolved).length} UNREAD</span>
-            </div>
-            <div className="admin-feed">
-              {supportTickets.map(tkt => (
-                <div key={tkt.id} className="admin-feed-item flex-col items-start gap-4">
-                  <div className="flex w-full justify-between items-center">
-                    <div className="flex items-center gap-2">
-                       <span className="font-bold">{tkt.user_name || 'Anonymous'}</span>
-                       <span className="admin-mono text-[10px] opacity-50">{tkt.user_email || 'No email'}</span>
-                       {tkt.resolved && <span className="admin-badge-green">RESOLVED</span>}
-                       {!tkt.resolved && <span className="admin-badge-pro" style={{ background: '#ef444420', color: '#ef4444' }}>ACTION REQUIRED</span>}
+                <div className="admin-panel">
+                  <div className="admin-panel-header">
+                    <h2 className="admin-panel-title">Platform Intelligence Overview</h2>
+                  </div>
+                  <div className="p-8 opacity-50 italic text-center">
+                    Select a category from the sidebar to manage specific platform operations.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'scholars' && (
+              <div className="section-fade-in">
+                <div className="admin-panel">
+                  <div className="admin-panel-header">
+                    <h2 className="admin-panel-title">Scholar Management</h2>
+                  </div>
+                  <div className="admin-table-container">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th align="left">SCHOLAR NAME</th>
+                          <th align="left">STUDENT TYPE</th>
+                          <th align="left">TIER</th>
+                          <th align="right">OPERATIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredUsers.map(u => (
+                          <tr key={u.id}>
+                            <td align="left" className="font-bold">{u.full_name || 'Anonymous'}</td>
+                            <td align="left" className="opacity-50 text-xs uppercase">{u.student_type || 'General'}</td>
+                            <td align="left">
+                              <span className={`citadel-badge ${u.is_pro ? 'pro' : 'free'}`}>
+                                {u.is_pro ? 'PRO' : 'FREE'}
+                              </span>
+                            </td>
+                            <td align="right">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  className={`citadel-action-btn ${u.is_pro ? 'revoke' : 'grant'}`}
+                                  onClick={() => handleGrantPro(u.id, !u.is_pro)}
+                                >
+                                  {u.is_pro ? 'Revoke Pro' : 'Grant Pro'}
+                                </button>
+                                <button className="citadel-action-btn revoke" onClick={() => console.log('Terminate user', u.id)}>
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'rooms' && (
+              <div className="section-fade-in">
+                <div className="admin-panel">
+                  <div className="admin-panel-header">
+                    <h2 className="admin-panel-title">Live Occupancy (Study Rooms)</h2>
+                  </div>
+                  <div className="citadel-room-grid p-6">
+                    {rooms.map(r => {
+                      const occupants = liveActivity.filter(l => l.room_id === r.id).length;
+                      return (
+                        <div key={r.id} className={`citadel-room-status ${occupants > 0 ? 'active' : ''}`}>
+                          <div className="room-name">{r.name}</div>
+                          <div className="room-occupancy">
+                            <span className="dot"></span>
+                            {occupants} Active Scholars
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'promos' && (
+              <div className="section-fade-in">
+                <div className="citadel-promo-layout">
+                  <div className="admin-panel">
+                    <div className="admin-panel-header">
+                      <h2 className="admin-panel-title">Deploy Promo</h2>
                     </div>
-                    <span className="feed-time">
-                      {tkt.created_at?.seconds ? new Date(tkt.created_at.seconds * 1000).toLocaleString() : 'Just now'}
-                    </span>
+                    <div className="p-6">
+                      <div className="flex flex-col gap-4">
+                        <input
+                          className="citadel-input-small w-full"
+                          placeholder="PROMO_CODE"
+                          value={newPromo.code}
+                          onChange={e => setNewPromo({...newPromo, code: e.target.value.toUpperCase()})}
+                        />
+                        <input
+                          type="number"
+                          className="citadel-input-small w-full"
+                          placeholder="DISCOUNT %"
+                          value={newPromo.discount}
+                          onChange={e => setNewPromo({...newPromo, discount: e.target.value})}
+                        />
+                        <button className="citadel-action-btn grant w-full mt-2" onClick={handleCreatePromo}>
+                          GENERATE & DEPLOY
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm opacity-80 pl-2 border-l-2 border-primary">
-                    {tkt.message}
+
+                  <div className="admin-panel">
+                    <div className="admin-panel-header">
+                      <h2 className="admin-panel-title">Active Deployments</h2>
+                    </div>
+                    <div className="admin-table-container">
+                      <table className="admin-table">
+                        <thead>
+                          <tr>
+                            <th align="left">CODE</th>
+                            <th align="left">DISCOUNT</th>
+                            <th align="center">STATUS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {promoCodes.map(p => (
+                            <tr key={p.id}>
+                              <td align="left" className="font-bold text-primary">{p.code}</td>
+                              <td align="left" className="font-black">{p.discount_pct}% OFF</td>
+                              <td align="center">
+                                <span className={`citadel-badge ${p.active ? 'pro' : 'free'}`} onClick={() => handleTogglePromo(p.id, p.active)} style={{cursor: 'pointer'}}>
+                                  {p.active ? 'ON' : 'OFF'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                          {promoCodes.length === 0 && (
+                            <tr><td colSpan="3" className="text-center py-20 opacity-30 italic">No promo codes deployed.</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                  <button 
-                    className={`admin-action-btn ${tkt.resolved ? 'revoke' : 'grant'} mt-2`}
-                    onClick={() => handleResolveTicket(tkt.id, !tkt.resolved)}
-                  >
-                    {tkt.resolved ? 'Mark Unresolved' : 'Mark Resolved'}
-                  </button>
                 </div>
-              ))}
-              {supportTickets.length === 0 && <div className="text-center py-8 opacity-40 italic text-sm">Inbox zero. You have no messages.</div>}
-            </div>
-          </div>
-        )}
-
-        {/* ── Broadcast Tab ── */}
-        {activeTab === 'broadcast' && (
-          <div className="admin-main-grid">
-            <div className="admin-panel">
-              <div className="admin-panel-header">
-                <h2 className="admin-panel-title">Manifesto Broadcast</h2>
               </div>
-              <div className="admin-broadcast-area">
-                <div className="admin-input-group">
-                  <label>System-wide Announcement</label>
-                  <textarea
-                    className="admin-textarea" rows="4"
-                    placeholder="Type your message to all scholars..."
-                    value={broadcast}
-                    onChange={e => setBroadcast(e.target.value)}
-                  />
+            )}
+
+            {activeTab === 'support' && (
+              <div className="section-fade-in">
+                <div className="admin-panel">
+                  <div className="admin-panel-header">
+                    <h2 className="admin-panel-title">Support Intelligence</h2>
+                  </div>
+                  <div className="admin-table-container">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th align="left">SCHOLAR</th>
+                          <th align="left">ISSUE</th>
+                          <th align="right">ACTION</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {supportTickets.map(t => (
+                          <tr key={t.id}>
+                            <td align="left" className="font-bold">{t.user_name || 'Anonymous'}</td>
+                            <td align="left" className="text-sm opacity-50">{t.subject}</td>
+                            <td align="right">
+                              <button
+                                className={`citadel-action-btn ${t.resolved ? 'revoke' : 'grant'}`}
+                                onClick={() => handleResolveTicket(t.id, !t.resolved)}
+                              >
+                                {t.resolved ? 'Reopen' : 'Resolve'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {supportTickets.length === 0 && (
+                          <tr><td colSpan="3" className="text-center py-20 opacity-30 italic">No tickets found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <button className="admin-btn" onClick={handleBroadcast}>⚡ Transmit to All Scholars</button>
-                <p className="text-xs opacity-40 mt-3">Message will appear as a banner on all users' dashboards.</p>
               </div>
-            </div>
+            )}
 
-            <div className="admin-panel">
-               <div className="admin-panel-header">
-                  <h2 className="admin-panel-title" style={{ color: '#ef4444' }}>God Mode Controls</h2>
-               </div>
-               <div className="p-8">
-                  <h3 className="font-bold text-lg mb-2">Maintenance Mode</h3>
-                  <p className="text-sm opacity-60 mb-6">
-                    Activating Maintenance Mode will forcefully disconnect all current users (except Admins) and present them with a cinematic lockdown screen. The platform will be unusable by scholars until disengaged.
-                  </p>
-                  <button 
-                    className={`admin-btn w-full font-bold ${isMaintenance ? 'bg-green-600' : 'bg-red-600'}`} 
-                    onClick={handleToggleMaintenance}
-                    style={{ background: isMaintenance ? '#10b981' : '#ef4444', color: '#ffffff' }}
-                  >
-                    {isMaintenance ? '🔓 DISENGAGE MAINTENANCE' : '🚨 ENGAGE MAINTENANCE MODE'}
-                  </button>
-               </div>
-            </div>
+            {activeTab === 'system' && (
+              <div className="section-fade-in">
+                <div className="admin-panel">
+                  <div className="admin-panel-header">
+                    <h2 className="admin-panel-title">Deployment Controls</h2>
+                  </div>
+                  <div className="p-6 flex flex-col gap-6">
+                    <button
+                      className={`citadel-btn-main w-full ${isMaintenance ? 'active' : ''}`}
+                      onClick={handleToggleMaintenance}
+                    >
+                      {isMaintenance ? '🚫 DISENGAGE LOCKDOWN' : '🚨 ENGAGE PLATFORM LOCKDOWN'}
+                    </button>
+                    <textarea
+                      className="citadel-textarea"
+                      placeholder="Broadcast to all scholarship terminals..."
+                      value={broadcast}
+                      onChange={e => setBroadcast(e.target.value)}
+                    />
+                    <button className="citadel-btn-main secondary w-full" onClick={handleBroadcast}>
+                      TRANSMIT BANNER
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </main>
       </div>
     </div>
   );

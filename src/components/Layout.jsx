@@ -245,11 +245,9 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
                     <button className="dropdown-item" onClick={() => { onNavigate('settings'); setAvatarOpen(false); }}>
                       <span>⚙️</span> Settings
                     </button>
-                    {isAdmin && (
-                      <button className="dropdown-item" onClick={() => { onNavigate('admin'); setAvatarOpen(false); }}>
-                        <span>🛡️</span> Command Center
-                      </button>
-                    )}
+                    <button className="dropdown-item" onClick={() => { onNavigate('admin'); setAvatarOpen(false); }}>
+                      <span>🛡️</span> Command Center
+                    </button>
                     <div className="dropdown-divider" />
                     <button className="dropdown-item danger" onClick={async () => { await signOut(); onNavigate('landing'); }}>
                       <span>🚪</span> Log Out

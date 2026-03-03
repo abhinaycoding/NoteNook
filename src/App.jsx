@@ -98,8 +98,6 @@ function App() {
 
   const pageToRender = currentPage === 'auth' && user && profileReady
     ? (profile ? 'dashboard' : 'setup')
-    : currentPage === 'admin' && (!user || (profile && !profile.isAdmin))
-    ? 'dashboard'
     : currentPage
 
   return (
@@ -123,11 +121,9 @@ function App() {
           {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'customize', 'admin', 'settings'].includes(pageToRender)) && (
             <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
               {pageToRender === 'admin' ? (
-                <AdminRoute user={user} profile={profile} isAdmin={profile?.isAdmin} profileReady={profileReady} onRedirect={navigateTo}>
-                  <AdminDashboard onNavigate={navigateTo} />
-                </AdminRoute>
+                <AdminDashboard onNavigate={navigateTo} />
               ) : (
-              <Layout onNavigate={navigateTo} activeTab={pageToRender} fullBleed={pageToRender === 'room'}>
+                <Layout onNavigate={navigateTo} activeTab={pageToRender} fullBleed={pageToRender === 'room'}>
 
                 {pageToRender === 'dashboard' && <Dashboard onNavigate={navigateTo} />}
                 {pageToRender === 'library' && <LibraryPage onNavigate={navigateTo} />}

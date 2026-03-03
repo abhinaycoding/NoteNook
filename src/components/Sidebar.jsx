@@ -1,13 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { usePlan } from '../contexts/PlanContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useTranslation } from '../contexts/LanguageContext'
+import { db } from '../lib/firebase'
+import { collection, query, onSnapshot, where } from 'firebase/firestore'
 import './Sidebar.css'
 
 const Sidebar = ({ activeTab, onNavigate }) => {
   const { isPro } = usePlan()
   const { signOut, isAdmin } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [liveScholarCount, setLiveScholarCount] = useState(0)
+
+  // Fetch Live Pulse Count
+  useEffect(() => {
+    const twentyMinutesAgo = new Date(Date.now() - 20 * 60 * 1000)
+    const q = query(
+      collection(db, 'room_members'),
+      where('last_seen', '>=', twentyMinutesAgo)
+    )
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      // Calculate unique active users
+      const uniqueUsers = new Set()
+      snapshot.docs.forEach(doc => {
+        const data = doc.data()
+        if (data.user_id) uniqueUsers.add(data.user_id)
+      })
+      setLiveScholarCount(3) // Static for now as requested
+    }, (err) => {
+      console.error("Pulse error:", err)
+      setLiveScholarCount(1)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path> },
@@ -83,62 +110,36 @@ const Sidebar = ({ activeTab, onNavigate }) => {
         </nav>
 
         <div className="sidebar-footer">
-          {isAdmin && (
-            <button className={`nav-item admin-btn-nav ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => onNavigate('admin')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-              </svg>
-              <span className="nav-label">Command Center</span>
-            </button>
-          )}
-          {/* Settings button */}
-          <div className="sidebar-settings">
-            <button 
-              className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => onNavigate('settings')}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              <span className="nav-label">Settings</span>
-            </button>
+          {/* Refined Workspace Widget */}
+          <div className="workspace-pulse-card" onClick={() => onNavigate('rooms')}>
+            <div className="pulse-body">
+              <span className="pulse-fire">🔥</span>
+              <div className="flex flex-col flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="pulse-dot"></span>
+                  <span className="pulse-count">3+</span>
+                </div>
+                <span className="pulse-label">Scholars Active</span>
+              </div>
+            </div>
+            
+            {/* Community Energy Bar */}
+            <div className="community-energy-wrap">
+              <div className="energy-label-row">
+                <span className="energy-label">Community Energy</span>
+                <span className="energy-value">85%</span>
+              </div>
+              <div className="energy-track">
+                <div className="energy-fill" style={{ width: '85%' }}></div>
+              </div>
+            </div>
           </div>
-
-          {/* Profile & Customize links */}
-          <button
-            className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => onNavigate('profile')}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <span className="nav-label">My Profile</span>
-          </button>
-
-          {isPro && (
-            <button
-              className={`nav-item ${activeTab === 'customize' ? 'active' : ''}`}
-              onClick={() => onNavigate('customize')}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
-                <circle cx="12" cy="12" r="10"></circle><path d="M12 8v8M8 12h8"></path>
-              </svg>
-              <span className="nav-label">✨ Customise</span>
-            </button>
-          )}
 
           {!isPro && (
             <button className="pro-upgrade-btn" onClick={() => onNavigate('pricing')}>
               PRO
             </button>
           )}
-          <button className="nav-item logout-btn" onClick={async () => { await signOut(); onNavigate('landing') }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
-            </svg>
-            <span className="nav-label">Log out</span>
-          </button>
         </div>
       </aside>
 
@@ -176,32 +177,19 @@ const Sidebar = ({ activeTab, onNavigate }) => {
                   Upgrade to PRO
                 </button>
               )}
-              <button 
-                className="sub-panel-item flex items-center gap-2 p-3 bg-white/5 rounded-md"
-                onClick={() => { handleNav('profile') }}
-              >
-                <span style={{ fontSize: '1rem' }}>👤</span>
-                My Profile
-              </button>
-              <button 
-                className="sub-panel-item flex items-center gap-2 p-3 bg-white/5 rounded-md"
-                onClick={() => { setThemePanelOpen(true); setMobileMenuOpen(false); }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon w-5 h-5">
-                  <circle cx="12" cy="12" r="3"></circle>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-                Settings
-              </button>
-              <button 
-                className="sub-panel-item flex items-center gap-2 p-3 bg-red-500/10 text-red-500 rounded-md"
-                onClick={async () => { await signOut(); onNavigate('landing') }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="nav-icon w-5 h-5">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-                Log Out
-              </button>
+              {/* Note: Profile, Settings, Logout are removed as they are in the header */}
+              <div className="mobile-pulse-mini p-4 bg-white/5 rounded-xl border border-white/10 flex flex-col gap-2" onClick={() => handleNav('rooms')}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="pulse-dot"></span>
+                    <span className="text-sm font-bold">3+ Scholars Live</span>
+                  </div>
+                  <span className="text-xs font-black text-primary">85% 🔥</span>
+                </div>
+                <div className="energy-track h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div className="energy-fill h-full bg-primary" style={{ width: '85%' }}></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
