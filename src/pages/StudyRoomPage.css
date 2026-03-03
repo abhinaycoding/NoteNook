@@ -665,7 +665,7 @@
 .whiteboard-btn-bottom {
   position: fixed;
   bottom: 1.5rem;
-  right: 2rem;
+  left: 2rem;
   z-index: 100;
   display: flex;
   align-items: center;
