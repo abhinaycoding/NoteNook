@@ -76,12 +76,18 @@ const AnalyticsPage = ({ onNavigate }) => {
       const total = allSessions.reduce((a, s) => a + (s.duration_seconds || 0), 0)
       setTotalHours((total / 3600).toFixed(1))
 
-      // Task stats
+      // Task stats (Last 7 Days)
       const qTasks = query(collection(db, 'tasks'), where('user_id', '==', user.uid))
       const tasksSnap = await getDocs(qTasks)
       const allTasks = tasksSnap.docs.map(doc => doc.data())
-      const completed = allTasks.filter(t => t.completed).length
-      setTaskStats({ completed, pending: allTasks.length - completed, total: allTasks.length })
+      
+      const recentTasks = allTasks.filter(t => {
+        const d = t.created_at?.toDate ? t.created_at.toDate() : new Date(t.created_at || Date.now())
+        return d.getTime() >= sevenAgoTime
+      })
+      
+      const completed = recentTasks.filter(t => t.completed).length
+      setTaskStats({ completed, pending: recentTasks.length - completed, total: recentTasks.length })
 
       // Streak calculation
       let streak = 0
@@ -137,7 +143,7 @@ const AnalyticsPage = ({ onNavigate }) => {
         </div>
         <div className="kpi-card">
           <div className="kpi-value">{taskStats.completed}</div>
-          <div className="kpi-label">Tasks Done</div>
+          <div className="kpi-label">Weekly Tasks Done</div>
         </div>
         <div className="kpi-card">
           <div className="kpi-value">{streakDays}</div>
@@ -147,7 +153,7 @@ const AnalyticsPage = ({ onNavigate }) => {
           <div className="kpi-value">
             {taskStats.total > 0 ? Math.round((taskStats.completed / taskStats.total) * 100) : 0}%
           </div>
-          <div className="kpi-label">Efficiency</div>
+          <div className="kpi-label">Weekly Efficiency</div>
         </div>
       </div>
 

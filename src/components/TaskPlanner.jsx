@@ -104,7 +104,13 @@ const TaskPlanner = () => {
 
   const toggleTask = async (id, current) => {
     try {
-      await updateDoc(doc(db, 'tasks', id), { completed: !current })
+      const updateData = { completed: !current }
+      if (!current) {
+        updateData.completed_at = serverTimestamp()
+      } else {
+        updateData.completed_at = null
+      }
+      await updateDoc(doc(db, 'tasks', id), updateData)
       window.dispatchEvent(new CustomEvent('task-updated', { detail: { id, completed: !current } }))
       
       if (!current) {
@@ -145,8 +151,17 @@ const TaskPlanner = () => {
     }
   }
 
+  const isToday = (dateObj) => {
+    if (!dateObj) return true
+    const d = dateObj.toDate ? dateObj.toDate() : new Date(dateObj)
+    const today = new Date()
+    return d.getDate() === today.getDate() &&
+           d.getMonth() === today.getMonth() &&
+           d.getFullYear() === today.getFullYear()
+  }
+
   const incomplete = tasks.filter(tk => !tk.completed)
-  const done = tasks.filter(tk => tk.completed)
+  const done = tasks.filter(tk => tk.completed && (tk.completed_at ? isToday(tk.completed_at) : isToday(tk.created_at)))
 
   return (
     <div className="ledger-container">
