@@ -118,16 +118,25 @@ const VoiceChannel = ({ roomId, channelId, channelName, user, members }) => {
 
   // ── Watch Presence & Update Voice Users ───────────────────────────────────
   useEffect(() => {
-    const q = query(
-      collection(db, voicePresencePath),
-      where('room_id', '==', roomId),
-      where('channel_id', '==', channelId)
-    )
-    const unsub = onSnapshot(q, snap => {
-      setVoiceUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    })
-    presenceUnsub.current = unsub
-    return () => unsub()
+    let unsub = null
+    try {
+      const q = query(
+        collection(db, voicePresencePath),
+        where('room_id', '==', roomId),
+        where('channel_id', '==', channelId)
+      )
+      unsub = onSnapshot(q,
+        snap => {
+          setVoiceUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        },
+        _err => {
+          // Firestore rules not deployed yet — presence won't sync cross-device
+          // but local voice still works via local state (joinVoice adds self)
+        }
+      )
+      presenceUnsub.current = unsub
+    } catch (_) { /* noop */ }
+    return () => unsub?.()
   }, [roomId, channelId])
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────
