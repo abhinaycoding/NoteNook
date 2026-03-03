@@ -36,7 +36,7 @@ const ChannelList = ({ roomId, activeChannelId, onSelectChannel, channels, isOwn
   const [adding, setAdding] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const allChannels = channels.length > 0 ? channels : DEFAULT_CHANNELS
+  const allChannels = [...DEFAULT_CHANNELS, ...channels]
   const groups = groupChannels(allChannels)
 
   const typeIcons = { text: '#', voice: '🔊', doc: '📝' }

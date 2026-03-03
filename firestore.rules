@@ -61,7 +61,7 @@ service cloud.firestore {
 
     // 3. Collaborative Study Rooms — Membership Restricted
     match /study_rooms/{roomId} {
-      allow read: if request.auth != null && (isMember(roomId) || isAdmin());
+      allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && (isMember(roomId) || resource.data.created_by == request.auth.uid || isAdmin());
     }
