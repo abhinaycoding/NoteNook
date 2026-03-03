@@ -13,13 +13,44 @@
   background: var(--primary);
   color: #fff;
   z-index: 1000;
-  padding: 0.5rem;
+  height: 36px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  overflow: hidden;
   font-size: 0.8rem;
   font-weight: 600;
+}
+
+.banner-icon {
+  flex-shrink: 0;
+  padding: 0 0.75rem;
+  font-size: 0.9rem;
+  z-index: 2;
+  background: var(--primary);
+  position: relative;
+}
+
+.banner-marquee-track {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  white-space: nowrap;
+  animation: banner-scroll 20s linear infinite;
+}
+
+.banner-text {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.banner-separator {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+@keyframes banner-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-33.33%); }
 }
 
 .layout-maintenance-banner {

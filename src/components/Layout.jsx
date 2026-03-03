@@ -30,7 +30,14 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
       {globalSettings?.announcement_active && globalSettings?.announcement && (
         <div className="layout-announcement-banner">
           <span className="banner-icon">⚡</span>
-          <span className="banner-text">{globalSettings.announcement}</span>
+          <div className="banner-marquee-track">
+            <span className="banner-text">{globalSettings.announcement}</span>
+            <span className="banner-separator">✦</span>
+            <span className="banner-text">{globalSettings.announcement}</span>
+            <span className="banner-separator">✦</span>
+            <span className="banner-text">{globalSettings.announcement}</span>
+            <span className="banner-separator">✦</span>
+          </div>
         </div>
       )}
       {isMaintenance && isAdmin && (
