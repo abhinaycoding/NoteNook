@@ -455,7 +455,7 @@ body::before {
   left: 0;
   pointer-events: none !important; 
   z-index: 2147483647 !important;
-  transition: transform 0.1s linear, background-color 0.2s, width 0.2s, height 0.2s;
+  transition: background-color 0.2s, width 0.2s, height 0.2s;
   will-change: transform;
   filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.4));
 }

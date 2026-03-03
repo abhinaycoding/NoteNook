@@ -13,7 +13,7 @@ const CustomCursor = () => {
     const moveCursor = (e) => {
       if(cursor) {
         // Use translate3d for sub-pixel precision and GPU acceleration
-        cursor.style.transform = `translate3d(${e.clientX - 10}px, ${e.clientY - 10}px, 0)`;
+        cursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
       }
     };
     
