@@ -59,7 +59,8 @@ const AnalyticsPage = ({ onNavigate }) => {
       // Map sessions to days
       recentSessions.forEach(s => {
         const d = s.created_at?.toDate ? s.created_at.toDate() : new Date(s.created_at)
-        const sessionDate = d.toISOString().split('T')[0]
+        // Use locale-specific date key for better timezone alignment
+        const sessionDate = d.toLocaleDateString('en-CA') // YYYY-MM-DD
         const day = days.find(d => d.date === sessionDate)
         if (day) day.hours += parseFloat((s.duration_seconds / 3600).toFixed(2))
       })

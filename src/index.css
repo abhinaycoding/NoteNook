@@ -443,28 +443,28 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
-/* Custom Cursor */
+/* Custom Cursor - Neo-Brutalist Arrow */
 .custom-cursor {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 22px;
   background-color: var(--primary);
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
+  /* Neo-brutalist Sharp Arrow Shape */
+  clip-path: polygon(0% 0%, 100% 70%, 40% 70%, 40% 100%);
   position: fixed;
   top: 0;
   left: 0;
   pointer-events: none !important; 
   z-index: 2147483647 !important;
-  transition: width 0.2s, height 0.2s, background-color 0.2s;
-  box-shadow: 0 0 15px rgba(0,0,0,0.3);
+  transition: transform 0.1s linear, background-color 0.2s, width 0.2s, height 0.2s;
   will-change: transform;
+  filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.4));
 }
 
 .custom-cursor.hovering {
-  width: 34px;
-  height: 34px;
+  width: 18px;
+  height: 28px;
   background-color: var(--accent);
-  opacity: 0.8;
+  filter: drop-shadow(3px 3px 0px rgba(0,0,0,0.6));
 }
 
 /* Google Sign-In Button */

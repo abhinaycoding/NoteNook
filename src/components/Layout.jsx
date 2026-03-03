@@ -65,7 +65,7 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
           {children}
         </main>
       </div>
-      <SupportWidget />
+      {activeTab !== 'room' && <SupportWidget />}
     </div>
   );
 };
