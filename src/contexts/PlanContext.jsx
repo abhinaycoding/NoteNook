@@ -31,14 +31,25 @@ export function PlanProvider({ children }) {
     return () => unsubscribe()
   }, [user])
 
-  // Stub function for direct UI tests if needed (actual upgrades happen via Stripe/Razorpay)
-  const upgradePlanFallback = async () => {
-    if (!user?.uid) return
-    setIsPro(true)
+  // Secure upgrade function called after successful Razorpay payment
+  const upgradePlan = async () => {
+    if (!user?.uid) {
+      console.error('[PlanContext] No user found for upgrade');
+      return;
+    }
+    
+    console.log('[PlanContext] Upgrading user to Pro:', user.uid);
     try {
-      await updateDoc(doc(db, 'profiles', user.uid), { is_pro: true })
+      await updateDoc(doc(db, 'profiles', user.uid), { 
+        is_pro: true,
+        plan_tier: 'master',
+        updated_at: new Date().toISOString()
+      });
+      setIsPro(true);
+      return true;
     } catch (err) {
-      console.error('Manual upgrade failed:', err.message)
+      console.error('[PlanContext] Upgrade failed:', err.message);
+      throw err;
     }
   }
 
@@ -68,8 +79,7 @@ export function PlanProvider({ children }) {
   return (
     <PlanContext.Provider value={{ 
         isPro, 
-        upgradePlan: upgradePlanFallback, 
-        downgradePlan: downgradePlanFallback,
+        upgradePlan, 
         refreshPlan,
     }}>
       {children}

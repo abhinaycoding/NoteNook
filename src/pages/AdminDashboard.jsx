@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import {
   collection, query, orderBy, limit, onSnapshot,
-  doc, updateDoc, deleteDoc, serverTimestamp, setDoc, getDocs
+  doc, updateDoc, deleteDoc, serverTimestamp, setDoc, getDocs, addDoc
 } from 'firebase/firestore';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import './AdminDashboard.css';
 
 const AdminDashboard = ({ onNavigate }) => {
+  const { user } = useAuth();
   const toast = useToast();
   const [metrics, setMetrics] = useState({ totalRevenue: 0, totalUsers: 0, activeRooms: 0, masterUsers: 0, totalTasks: 0, totalSessions: 0 });
   const [payments, setPayments] = useState([]);
@@ -15,6 +17,8 @@ const AdminDashboard = ({ onNavigate }) => {
   const [users, setUsers] = useState([]);
   const [recentUsers, setRecentUsers] = useState([]);
   const [supportTickets, setSupportTickets] = useState([]);
+  const [promoCodes, setPromoCodes] = useState([]);
+  const [newPromo, setNewPromo] = useState({ code: '', discount: 10 });
   const [isMaintenance, setIsMaintenance] = useState(false);
   const [broadcast, setBroadcast] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -66,6 +70,12 @@ const AdminDashboard = ({ onNavigate }) => {
       }, err => console.warn('settings:', err.message)
     );
 
+    const unsubPromos = onSnapshot(
+      collection(db, 'promo_codes'),
+      (snap) => {
+        setPromoCodes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }, err => console.warn('promos:', err.message)
+    );
 
     // Platform stats
     const fetchStats = async () => {
@@ -79,8 +89,56 @@ const AdminDashboard = ({ onNavigate }) => {
     };
     fetchStats();
 
-    return () => { unsubPayments(); unsubProfiles(); unsubRooms(); unsubTickets(); unsubSettings(); };
+    return () => { unsubPayments(); unsubProfiles(); unsubRooms(); unsubTickets(); unsubSettings(); unsubPromos(); };
   }, []);
+
+  const handleUnlock = async (e) => {
+    e.preventDefault();
+    if (passcode === '2004') {
+      try {
+        if (user && user.uid) { 
+          // Use setDoc with merge: true to ensure the document is created if it doesn't exist
+          await setDoc(doc(db, 'profiles', user.uid), { isAdmin: true }, { merge: true });
+        }
+        setIsUnlocked(true);
+        setPasscodeError(false);
+      } catch (err) {
+        console.error('Unlock error:', err);
+        // Even if profiling fails, unlock the UI
+        setIsUnlocked(true);
+        toast('Admin status update failed, but access granted.', 'warning');
+      }
+    } else {
+      setPasscodeError(true);
+      setPasscode('');
+      setTimeout(() => setPasscodeError(false), 2000);
+    }
+  };
+
+  const handleCreatePromo = async () => {
+    if (!newPromo.code || !newPromo.discount) return;
+    try {
+      console.log('Attempting to create promo with user:', user?.uid);
+      await addDoc(collection(db, 'promo_codes'), {
+        code: newPromo.code.toUpperCase(),
+        discount_pct: Number(newPromo.discount),
+        active: true,
+        created_at: serverTimestamp()
+      });
+      toast('Promo code created!', 'success');
+      setNewPromo({ code: '', discount: 10 });
+    } catch (err) { 
+      console.error('PROMO_CREATE_ERROR:', err);
+      toast(`Failed: ${err.message || 'Permission denied'}`, 'error'); 
+    }
+  };
+
+  const handleTogglePromo = async (id, currentStatus) => {
+    try {
+      await updateDoc(doc(db, 'promo_codes', id), { active: !currentStatus });
+      toast('Code status updated.', 'success');
+    } catch { toast('Failed to update code.', 'error'); }
+  };
 
   const handleGrantPro = async (userId, grant) => {
     try {
@@ -132,17 +190,7 @@ const AdminDashboard = ({ onNavigate }) => {
 
   const convRate = metrics.totalUsers ? ((metrics.masterUsers / metrics.totalUsers) * 100).toFixed(1) : '0.0';
 
-  const handleUnlock = (e) => {
-    e.preventDefault();
-    if (passcode === '0000') {
-      setIsUnlocked(true);
-      setPasscodeError(false);
-    } else {
-      setPasscodeError(true);
-      setPasscode('');
-      setTimeout(() => setPasscodeError(false), 2000);
-    }
-  };
+
 
   if (!isUnlocked) {
     return (
@@ -193,10 +241,10 @@ const AdminDashboard = ({ onNavigate }) => {
             </button>
           </div>
           <div className="admin-tabs">
-            {['overview', 'users', 'rooms', 'inbox', 'broadcast'].map(t => (
+            {['overview', 'users', 'payments', 'rooms', 'promos', 'inbox', 'broadcast'].map(t => (
               <button key={t} className={`admin-tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
                 {t === 'inbox' && supportTickets.filter(tkt => !tkt.resolved).length > 0 && <span className="admin-badge-red mr-2">{supportTickets.filter(tkt => !tkt.resolved).length}</span>}
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === 'promos' ? 'Promo Codes' : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
@@ -207,7 +255,7 @@ const AdminDashboard = ({ onNavigate }) => {
         {/* ── Metric Cards (always visible) ── */}
         <div className="admin-metrics-grid">
           {[
-            { label: 'Revenue', value: `₹${metrics.totalRevenue}`, trend: 'Launch Phase ↑' },
+            { label: 'Revenue', value: `₹${metrics.totalRevenue}`, trend: 'Platform Total' },
             { label: 'Scholars', value: metrics.totalUsers, trend: 'Total Enrolled' },
             { label: 'Master Users', value: metrics.masterUsers, trend: `${convRate}% Conversion` },
             { label: 'Active Rooms', value: metrics.activeRooms, trend: 'Live Sessions' },
@@ -229,25 +277,24 @@ const AdminDashboard = ({ onNavigate }) => {
             <div className="admin-panel">
               <div className="admin-panel-header">
                 <h2 className="admin-panel-title">Recent Transactions</h2>
-                <span className="admin-mono text-[10px] opacity-50">AUDIT LOG</span>
+                <button className="text-[10px] uppercase font-bold text-primary hover:underline" onClick={() => setActiveTab('payments')}>View All →</button>
               </div>
               <div className="admin-table-container">
                 <table className="admin-table">
-                  <thead><tr><th>Scholar</th><th>Payment ID</th><th>Amount</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Scholar</th><th>Amount</th><th>Status</th></tr></thead>
                   <tbody>
-                    {payments.map(pay => (
+                    {payments.slice(0, 5).map(pay => (
                       <tr key={pay.id}>
                         <td>
                           <div className="font-bold">{pay.userName || 'Anonymous'}</div>
                           <div className="text-[10px] opacity-50">{pay.userEmail}</div>
                         </td>
-                        <td className="admin-mono text-xs">{pay.razorpay_payment_id}</td>
                         <td className="font-bold">₹{pay.amount}</td>
                         <td><span className="admin-badge-green">{pay.status}</span></td>
                       </tr>
                     ))}
                     {payments.length === 0 && (
-                      <tr><td colSpan="4" className="text-center py-8 opacity-40 italic">Waiting for first transaction...</td></tr>
+                      <tr><td colSpan="3" className="text-center py-8 opacity-40 italic">Waiting for first transaction...</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -314,6 +361,49 @@ const AdminDashboard = ({ onNavigate }) => {
           </div>
         )}
 
+        {/* ── Payments Tab (Detailed View) ── */}
+        {activeTab === 'payments' && (
+          <div className="admin-panel">
+            <div className="admin-panel-header">
+              <h2 className="admin-panel-title">Full Payment History</h2>
+              <div className="admin-mono text-[10px] opacity-50">{payments.length} TRANSACTIONS</div>
+            </div>
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Scholar</th>
+                    <th>Email</th>
+                    <th>Razorpay ID</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map(pay => (
+                    <tr key={pay.id}>
+                      <td className="text-xs opacity-60">
+                        {pay.timestamp?.seconds 
+                          ? new Date(pay.timestamp.seconds * 1000).toLocaleDateString() 
+                          : 'Pending'}
+                      </td>
+                      <td className="font-bold">{pay.userName || 'Scholar'}</td>
+                      <td className="text-xs">{pay.userEmail}</td>
+                      <td className="admin-mono text-xs opacity-50">{pay.razorpay_payment_id}</td>
+                      <td className="font-bold text-primary">₹{pay.amount}</td>
+                      <td><span className="admin-badge-green">CAPTURED</span></td>
+                    </tr>
+                  ))}
+                  {payments.length === 0 && (
+                    <tr><td colSpan="6" className="text-center py-12 opacity-40 italic">No payments logged yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* ── Rooms Tab ── */}
         {activeTab === 'rooms' && (
           <div className="admin-panel">
@@ -336,6 +426,69 @@ const AdminDashboard = ({ onNavigate }) => {
                     </tr>
                   ))}
                   {rooms.length === 0 && <tr><td colSpan="4" className="text-center py-8 opacity-40 italic">No active rooms.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Promos Tab ── */}
+        {activeTab === 'promos' && (
+          <div className="admin-panel">
+            <div className="admin-panel-header">
+              <h2 className="admin-panel-title">Promo Code Manager</h2>
+              <span className="admin-mono text-[10px] opacity-50">{promoCodes.length} CODES</span>
+            </div>
+            
+            <div className="mb-8 p-6 bg-[#00000020] border-2 border-black">
+              <h3 className="text-xs font-black uppercase mb-4 tracking-tighter">Create New Code</h3>
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold opacity-60 uppercase block mb-1">Code Name</label>
+                  <input 
+                    type="text" 
+                    className="admin-input uppercase" 
+                    placeholder="E.G. SAVE50"
+                    value={newPromo.code}
+                    onChange={e => setNewPromo(p => ({ ...p, code: e.target.value }))}
+                  />
+                </div>
+                <div className="w-32">
+                  <label className="text-[10px] font-bold opacity-60 uppercase block mb-1">Discount %</label>
+                  <input 
+                    type="number" 
+                    className="admin-input" 
+                    placeholder="50"
+                    value={newPromo.discount}
+                    onChange={e => setNewPromo(p => ({ ...p, discount: e.target.value }))}
+                  />
+                </div>
+                <button className="admin-action-btn grant h-[42px]" onClick={handleCreatePromo}>Deploy Code</button>
+              </div>
+            </div>
+
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead><tr><th>Code</th><th>Discount</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                  {promoCodes.map(c => (
+                    <tr key={c.id}>
+                      <td className="font-bold admin-mono">{c.code}</td>
+                      <td className="font-black text-primary">{c.discount_pct}% OFF</td>
+                      <td>
+                        {c.active ? <span className="admin-badge-green">ACTIVE</span> : <span className="admin-badge-red text-[8px]">INACTIVE</span>}
+                      </td>
+                      <td>
+                        <button 
+                          className={`admin-action-btn ${c.active ? 'revoke' : 'grant'}`} 
+                          onClick={() => handleTogglePromo(c.id, c.active)}
+                        >
+                          {c.active ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {promoCodes.length === 0 && <tr><td colSpan="4" className="text-center py-8 opacity-40 italic">No promo codes created yet.</td></tr>}
                 </tbody>
               </table>
             </div>

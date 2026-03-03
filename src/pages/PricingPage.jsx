@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext';
 import { useToast } from '../contexts/ToastContext';
@@ -14,6 +14,52 @@ const PricingPage = ({ onNavigate }) => {
   const { t } = useTranslation();
   const toast = useToast();
   const [loading, setLoading] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState('');
+  
+  const BASE_PRICE = 99;
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    setLoading(true);
+    setPromoError('');
+    try {
+      // Check Firestore for codes - query by code only to avoid index Requirement for composite filters
+      const q = query(
+        collection(db, 'promo_codes'), 
+        where('code', '==', promoCode.toUpperCase())
+      );
+      const snap = await getDocs(q);
+      
+      if (snap.empty) {
+        setPromoError('Invalid or expired code');
+      } else {
+        const data = snap.docs[0].data();
+        if (data.active) {
+          setAppliedPromo({ code: data.code, discount: data.discount_pct });
+          toast(`${data.discount_pct}% Discount Applied! ⚡`, 'success');
+        } else {
+          setPromoError('This code is inactive');
+        }
+      }
+    } catch (err) {
+      console.error('Promo Code Error Details:', err);
+      if (err.code === 'permission-denied') {
+        setPromoError('Database access denied. Please try again.');
+      } else {
+        setPromoError(`Validator error: ${err.message || 'unknown'}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateTotal = () => {
+    if (!appliedPromo) return BASE_PRICE;
+    const discount = (BASE_PRICE * appliedPromo.discount) / 100;
+    return Math.max(0, Math.floor(BASE_PRICE - discount));
+  };
 
   const handleUpgrade = async () => {
     if (!user) {
@@ -23,17 +69,23 @@ const PricingPage = ({ onNavigate }) => {
 
     if (isPro) return;
 
+    const finalAmount = calculateTotal();
     setLoading(true);
+
     try {
-      // 1. Open Razorpay checkout modal directly (Simple Flow)
-      console.log('[Payment] Opening checkout...');
-      const paymentResult = await openRazorpayCheckout({
-        amount: 9900, // 99 INR in paise
-        currency: 'INR',
-        user,
-        profile
-      });
-      console.log('[Payment] Checkout completed:', paymentResult);
+      let paymentId = 'PROMO_FREE';
+
+      if (finalAmount > 0) {
+        // 1. Open Razorpay checkout modal directly (Simple Flow)
+        console.log('[Payment] Opening checkout for:', finalAmount);
+        const paymentResult = await openRazorpayCheckout({
+          amount: finalAmount * 100, // paise
+          currency: 'INR',
+          user,
+          profile
+        });
+        paymentId = paymentResult.razorpay_payment_id;
+      }
 
       // 2. Log Payment to Firestore (Audit Trail)
       console.log('[Payment] Logging transaction...');
@@ -41,10 +93,11 @@ const PricingPage = ({ onNavigate }) => {
         userId: user.uid,
         userName: profile?.full_name || user?.displayName || 'Scholar',
         userEmail: user.email,
-        razorpay_payment_id: paymentResult.razorpay_payment_id,
-        amount: 99,
+        razorpay_payment_id: paymentId,
+        amount: finalAmount,
         currency: 'INR',
         status: 'captured',
+        promo_used: appliedPromo?.code || null,
         timestamp: serverTimestamp()
       });
 
@@ -197,34 +250,63 @@ const PricingPage = ({ onNavigate }) => {
                 </div>
               </div>
 
-              <div className="brutal-footer z-10 relative">
-                <div className="brutal-price">
-                  <span className="currency">₹</span>
-                  <span className="amount">99</span>
-                  <div className="period">one-time payment</div>
+              <div className="promo-container">
+                <span className="promo-label">Have a special access code?</span>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="e.g. EARLYBIRD20" 
+                    className="brutal-input flex-1 px-4 py-3 uppercase text-sm font-black"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    disabled={loading || appliedPromo}
+                  />
+                  <button 
+                    className="brutal-btn py-2 px-6 text-sm"
+                    style={{ 
+                      backgroundColor: appliedPromo ? '#10b981' : '#000', 
+                      color: '#fff',
+                      padding: '0 1.5rem',
+                      boxShadow: '4px 4px 0px 0px rgba(0,0,0,1)'
+                    }}
+                    onClick={handleApplyPromo}
+                    disabled={loading || appliedPromo}
+                  >
+                    {loading ? '...' : appliedPromo ? 'VALID' : 'APPLY'}
+                  </button>
+                </div>
+                {promoError && <p className="text-[10px] text-red-600 mt-2 font-black uppercase tracking-widest">{promoError}</p>}
+              </div>
+
+              <div className="brutal-footer z-10 relative mt-8 pt-6 border-t-4 border-black">
+                <div className={`brutal-price ${appliedPromo ? 'price-animate' : ''}`}>
+                  {appliedPromo && (
+                    <div className="discount-badge">
+                      CODE {appliedPromo.code} ACTIVE • {appliedPromo.discount}% OFF
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {appliedPromo ? (
+                      <>
+                        <span className="text-3xl line-through opacity-30 font-black mr-2" style={{ color: '#000' }}>₹{BASE_PRICE}</span>
+                        <span className="text-7xl font-black text-primary">₹{calculateTotal()}</span>
+                      </>
+                    ) : (
+                      <span className="text-7xl font-black">₹{BASE_PRICE}</span>
+                    )}
+                  </div>
+                  <div className="period mt-1">one-time payment</div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
+                <div className="mt-6">
                   <button 
                     onClick={handleUpgrade}
                     disabled={isPro || loading}
-                    className="brutal-btn"
+                    className="brutal-btn w-full"
+                    style={{ backgroundColor: isPro ? '#10b981' : 'var(--primary)' }}
                   >
-                    {loading ? '⟳ Processing...' : isPro ? '✓ Active' : '⚡ Upgrade Now'}
+                    {loading ? '⟳' : isPro ? '✓ ACTIVE' : 'UPGRADE TO MASTER'}
                   </button>
-                  <div style={{ 
-                    fontSize: '0.6rem', 
-                    textAlign: 'center', 
-                    color: '#666', 
-                    fontWeight: 600,
-                    letterSpacing: '0.05em',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '0.3rem'
-                  }}>
-                    🔒 Secured by Razorpay
-                  </div>
                 </div>
               </div>
             </div>
