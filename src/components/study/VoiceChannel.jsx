@@ -25,6 +25,7 @@ const VoiceChannel = ({ roomId, channelId, channelName, user, members }) => {
   const audioContextRef = useRef(null)
   const analyserRef = useRef(null)
   const animFrameRef = useRef(null)
+  const candidateQueueRef = useRef({})                // uid -> RTCIceCandidate[]
   const presenceUnsub = useRef(null)
   const signalsUnsub = useRef(null)
 
@@ -67,10 +68,21 @@ const VoiceChannel = ({ roomId, channelId, channelName, user, members }) => {
       }
       audioRefs.current[remoteUid].srcObject = stream
       audioRefs.current[remoteUid].autoplay = true
+      audioRefs.current[remoteUid].play().catch(e => console.warn('Audio play failed', e))
     }
 
     return pc
   }, [roomId, channelId, user.uid])
+
+  // Flush queued candidates once remote description is set
+  const flushCandidateQueue = useCallback(async (uid, pc) => {
+    if (pc && pc.remoteDescription && candidateQueueRef.current[uid]) {
+      for (const c of candidateQueueRef.current[uid]) {
+        await pc.addIceCandidate(c).catch(() => {})
+      }
+      candidateQueueRef.current[uid] = []
+    }
+  }, [])
 
   // ── Join Voice ─────────────────────────────────────────────────────────────
   const joinVoice = useCallback(async () => {
@@ -155,6 +167,7 @@ const VoiceChannel = ({ roomId, channelId, channelName, user, members }) => {
           if (signal.type === 'offer') {
             const pc = createPeer(sender)
             await pc.setRemoteDescription(new RTCSessionDescription(payload))
+            flushCandidateQueue(sender, pc)
             const answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
             addDoc(collection(db, signalsPath), {
@@ -168,15 +181,24 @@ const VoiceChannel = ({ roomId, channelId, channelName, user, members }) => {
             }).catch(() => {})
           } else if (signal.type === 'answer') {
             const pc = peersRef.current[sender]
-            if (pc) await pc.setRemoteDescription(new RTCSessionDescription(payload))
+            if (pc) {
+              await pc.setRemoteDescription(new RTCSessionDescription(payload))
+              flushCandidateQueue(sender, pc)
+            }
           } else if (signal.type === 'candidate') {
             const pc = peersRef.current[sender]
-            if (pc) await pc.addIceCandidate(new RTCIceCandidate(payload)).catch(()=> {})
+            const candidate = new RTCIceCandidate(payload)
+            if (pc && pc.remoteDescription) {
+              await pc.addIceCandidate(candidate).catch(()=> {})
+            } else {
+              if (!candidateQueueRef.current[sender]) candidateQueueRef.current[sender] = []
+              candidateQueueRef.current[sender].push(candidate)
+            }
           }
         }
       })
     })
-  }, [roomId, channelId, user, toast, presenceDocId, createPeer])
+  }, [roomId, channelId, user, toast, presenceDocId, createPeer, flushCandidateQueue])
 
   // ── Leave Voice ────────────────────────────────────────────────────────────
   const leaveVoice = useCallback(async () => {
