@@ -416,12 +416,22 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
 
                 <div className="dm-messages">
                   {messages.length === 0 && <div className="dm-no-msgs">Say hi! 👋</div>}
-                  {messages.map(m => (
-                    <div key={m.id} className={`dm-msg ${m.from === user.uid ? 'dm-msg-me' : 'dm-msg-them'}`}>
-                      {m.image_url && <img src={m.image_url} alt="Shared" className="dm-msg-img" />}
-                      {m.text && <div className="dm-msg-bubble">{m.text}</div>}
-                    </div>
-                  ))}
+                  {messages.map((m, index) => {
+                    const isMe = m.from === user.uid
+                    const showName = !isMe && (index === 0 || messages[index - 1].from !== m.from)
+                    
+                    return (
+                      <div key={m.id} className={`dm-msg ${isMe ? 'dm-msg-me' : 'dm-msg-them'}`}>
+                        {showName && (
+                          <div className="dm-msg-sender-name">
+                            {m.fromName || selectedFriend.full_name || 'Scholar'}
+                          </div>
+                        )}
+                        {m.image_url && <img src={m.image_url} alt="Shared" className="dm-msg-img" />}
+                        {m.text && <div className="dm-msg-bubble">{m.text}</div>}
+                      </div>
+                    )
+                  })}
                   {isFriendTyping && (
                     <div className="dm-typing-indicator">
                       <span /><span /><span />

@@ -246,10 +246,20 @@
 
 .dm-msg {
   display: flex;
+  flex-direction: column;
 }
 
-.dm-msg-me { justify-content: flex-end; }
-.dm-msg-them { justify-content: flex-start; }
+.dm-msg-me { align-items: flex-end; }
+.dm-msg-them { align-items: flex-start; }
+
+.dm-msg-sender-name {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+  margin-left: 0.2rem;
+  margin-right: 0.2rem;
+}
 
 .dm-msg-bubble {
   max-width: 75%;
