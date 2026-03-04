@@ -360,6 +360,10 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
           setPeopleSearchOpen(false);
           setDmOpen(true);
         }}
+        onStartDuel={(person) => {
+          setPeopleSearchOpen(false);
+          onNavigate('duel');
+        }}
       />
     </div>
   );

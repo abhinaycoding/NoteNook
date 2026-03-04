@@ -17,6 +17,7 @@ import ProfileCustomizerPage from './pages/ProfileCustomizerPage'
 import AdminDashboard from './pages/AdminDashboard'
 import SettingsPage from './pages/SettingsPage'
 import LeaderboardPage from './pages/LeaderboardPage'
+import FocusDuelPage from './pages/FocusDuelPage'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
 import ZenMode from './components/ZenMode'
@@ -119,7 +120,7 @@ function App() {
             </ProtectedRoute>
           )}
 
-          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'customize', 'admin', 'settings', 'leaderboard'].includes(pageToRender)) && (
+          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'customize', 'admin', 'settings', 'leaderboard', 'duel'].includes(pageToRender)) && (
             pageToRender === 'admin' ? (
               <AdminRoute user={user} profile={profile} isAdmin={isAdmin} profileReady={profileReady} onRedirect={navigateTo}>
                 <AdminDashboard onNavigate={navigateTo} />
@@ -163,6 +164,9 @@ function App() {
                 )}
                 {pageToRender === 'leaderboard' && (
                   <LeaderboardPage onNavigate={navigateTo} />
+                )}
+                {pageToRender === 'duel' && (
+                  <FocusDuelPage onNavigate={navigateTo} />
                 )}
               </Layout>
               </ProtectedRoute>

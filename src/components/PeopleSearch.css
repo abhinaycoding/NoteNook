@@ -522,6 +522,13 @@
 .ps-btn-incoming { background: #22c55e; color: #fff; border-color: #22c55e; }
 .ps-btn-incoming:hover { opacity: 0.88; }
 
+.ps-btn-duel {
+  background: linear-gradient(135deg, #f97316, #a855f7);
+  color: #fff;
+  border-color: transparent;
+}
+.ps-btn-duel:hover { opacity: 0.88; transform: scale(1.04); }
+
 .ps-btn-decline {
   padding: 0.3rem 0.6rem;
   border-radius: 999px;

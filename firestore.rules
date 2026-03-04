@@ -164,5 +164,21 @@ service cloud.firestore {
         allow delete: if request.auth != null && resource.data.from == request.auth.uid;
       }
     }
+    // ── Focus Duels ─────────────────────────────────────────────────────────
+    // A duel doc ID is composed of both UIDs — both participants can read.
+    // Each participant may only update their own sub-fields (active flag, broke_at).
+    match /duels/{duelId} {
+      allow read: if request.auth != null && (
+        resource.data.challenger_uid == request.auth.uid ||
+        resource.data.opponent_uid   == request.auth.uid
+      );
+      allow create: if request.auth != null &&
+        request.resource.data.challenger_uid == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.challenger_uid == request.auth.uid ||
+        resource.data.opponent_uid   == request.auth.uid
+      );
+      allow delete: if false;
+    }
   }
 }

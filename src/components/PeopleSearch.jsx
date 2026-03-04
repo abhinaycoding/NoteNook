@@ -12,7 +12,7 @@ import './PeopleSearch.css'
 //   • Discover — search for new users and send friend requests
 //   • My Friends — view + accept incoming requests, see all current friends
 // ─────────────────────────────────────────────────────────────────────────────
-const PeopleSearch = ({ isOpen, onClose, onStartChat }) => {
+const PeopleSearch = ({ isOpen, onClose, onStartChat, onStartDuel }) => {
   const { user, profile } = useAuth()
 
   const [activeTab, setActiveTab]             = useState('discover') // 'discover' | 'friends'
@@ -430,6 +430,11 @@ const PeopleSearch = ({ isOpen, onClose, onStartChat }) => {
                               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                             </svg>
                           </button>
+                          <button
+                            className="ps-btn ps-btn-duel"
+                            title="Focus Duel"
+                            onClick={() => { onStartDuel?.(person); onClose?.() }}
+                          >⚔️ Duel</button>
                           <button
                             className="ps-btn ps-btn-unfriend"
                             title="Unfriend"
