@@ -40,6 +40,10 @@ const FocusDuelPage = ({ onNavigate, preselectedFriend }) => {
   const [timeLeft, setTimeLeft]           = useState(0)
   const timerRef                          = useRef(null)
 
+  // Cinematic countdown
+  const [countdownStep, setCountdownStep]  = useState(0)  // 0=3, 1=2, 2=1, 3=FIGHT, 4=done
+  const countdownRef                       = useRef(null)
+
   // Forfeit grace
   const [opponentWarning, setOpponentWarning] = useState(false)
   const [myWarning, setMyWarning]             = useState(false)
@@ -82,7 +86,7 @@ const FocusDuelPage = ({ onNavigate, preselectedFriend }) => {
       setDuel(data)
 
       if (data.status === 'active' && screen === 'waiting') {
-        setScreen('arena')
+        setScreen('countdown')
         setTimeLeft(data.duration_mins * 60)
       }
       if (data.status === 'completed') {
@@ -103,7 +107,26 @@ const FocusDuelPage = ({ onNavigate, preselectedFriend }) => {
     return () => unsub()
   }, [duelId, screen, user?.uid])
 
-  // ── Countdown timer ───────────────────────────────────────────────────────
+  // ── Cinematic countdown 3-2-1-FIGHT ─────────────────────────────────────
+  useEffect(() => {
+    if (screen !== 'countdown') return
+    setCountdownStep(0)
+    const steps = [0, 1, 2, 3] // 3, 2, 1, FIGHT
+    let i = 0
+    countdownRef.current = setInterval(() => {
+      i++
+      if (i < steps.length) {
+        setCountdownStep(i)
+      } else {
+        clearInterval(countdownRef.current)
+        // small delay after FIGHT! before arena shows
+        setTimeout(() => setScreen('arena'), 700)
+      }
+    }, 900)
+    return () => clearInterval(countdownRef.current)
+  }, [screen])
+
+  // ── Focus timer ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (screen !== 'arena') return
     timerRef.current = setInterval(() => {
@@ -392,6 +415,55 @@ const FocusDuelPage = ({ onNavigate, preselectedFriend }) => {
             </div>
           )}
         </div>
+      </div>
+    )
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER: Cinematic 3D Countdown
+  // ─────────────────────────────────────────────────────────────────────────
+  if (screen === 'countdown' && duel) {
+    const amChallenger = duel.challenger_uid === user.uid
+    const me  = { name: amChallenger ? duel.challenger_name : duel.opponent_name,  photo: amChallenger ? duel.challenger_photo : duel.opponent_photo  }
+    const opp = { name: amChallenger ? duel.opponent_name  : duel.challenger_name, photo: amChallenger ? duel.opponent_photo  : duel.challenger_photo }
+    const steps  = ['3', '2', '1', 'FIGHT!']
+    const current = steps[countdownStep]
+    const isFight = countdownStep === 3
+
+    return (
+      <div className="duel-countdown-wrap">
+        {/* Particle burst bg */}
+        <div className="cd-particles">
+          {[...Array(18)].map((_, i) => <span key={i} className="cd-particle" style={{ '--i': i }} />)}
+        </div>
+
+        {/* Player avatars — slide in from sides */}
+        <div className="cd-players">
+          <div className="cd-player cd-player-left">
+            <div className="cd-player-avatar">
+              {me.photo ? <img src={me.photo} alt={me.name} /> : me.name?.[0] || 'Y'}
+            </div>
+            <span className="cd-player-label">YOU</span>
+          </div>
+
+          {/* Centre 3D number */}
+          <div className="cd-centre">
+            <div className={`cd-number ${isFight ? 'cd-fight' : 'cd-tick'}`} key={countdownStep}>
+              {current}
+            </div>
+            {isFight && <div className="cd-swords">⚔️</div>}
+          </div>
+
+          <div className="cd-player cd-player-right">
+            <div className="cd-player-avatar">
+              {opp.photo ? <img src={opp.photo} alt={opp.name} /> : opp.name?.[0] || '?'}
+            </div>
+            <span className="cd-player-label">{opp.name?.split(' ')[0]}</span>
+          </div>
+        </div>
+
+        {/* XP stake text */}
+        <div className="cd-stake">{duel.xp_stake} XP on the line</div>
       </div>
     )
   }
