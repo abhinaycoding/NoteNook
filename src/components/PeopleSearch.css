@@ -155,10 +155,17 @@
   object-fit: cover;
 }
 
+/* Allow text truncation inside flex rows */
+.ps-info { min-width: 0; }
+
 .ps-name {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 }
 
 .ps-type {
