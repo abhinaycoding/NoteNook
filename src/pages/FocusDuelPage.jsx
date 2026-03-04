@@ -240,6 +240,19 @@ const FocusDuelPage = ({ onNavigate, preselectedFriend }) => {
     }
   }, [duelId, duel])
 
+  const cancelDuel = async () => {
+    if (!duelId) return
+    try {
+      await updateDoc(doc(db, 'duels', duelId), { status: 'cancelled' })
+    } catch (err) {
+      console.warn('Duel: cancel error', err.message)
+    }
+    // Reset local state back to challenge screen
+    setDuelId(null)
+    setDuel(null)
+    setScreen('challenge')
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER: Hub
   // ─────────────────────────────────────────────────────────────────────────
@@ -400,6 +413,9 @@ const FocusDuelPage = ({ onNavigate, preselectedFriend }) => {
         <h2 className="duel-waiting-title">Waiting for {selectedFriend?.full_name?.split(' ')[0]}…</h2>
         <p className="duel-waiting-sub">Challenge sent! They need to accept to start the duel.</p>
         <div className="duel-waiting-dots"><span/><span/><span/></div>
+        <button className="duel-cancel-btn" onClick={cancelDuel}>
+          ✕ Cancel Challenge
+        </button>
       </div>
     </div>
   )

@@ -535,6 +535,26 @@
   margin: 0;
 }
 
+.duel-cancel-btn {
+  margin-top: 0.5rem;
+  padding: 0.55rem 1.5rem;
+  border-radius: 10px;
+  background: transparent;
+  border: 1.5px solid rgba(239,68,68,0.35);
+  color: rgba(239,68,68,0.65);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.02em;
+}
+.duel-cancel-btn:hover {
+  background: rgba(239,68,68,0.1);
+  border-color: #ef4444;
+  color: #ef4444;
+  transform: scale(1.03);
+}
+
 .duel-waiting-dots { display: flex; gap: 8px; }
 .duel-waiting-dots span {
   width: 8px;
