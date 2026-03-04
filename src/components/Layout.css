@@ -17,32 +17,54 @@
 .layout-announcement-banner {
   width: 100%;
   flex-shrink: 0;
-  background: var(--primary);
-  color: #fff;
+  background: linear-gradient(90deg, #0f172a, #1e293b, #0f172a); /* Premium dark slate gradient */
+  color: #f8fafc;
   z-index: 1000;
-  height: 36px;
+  height: 38px; /* Slightly taller for premium feel */
   display: flex;
   align-items: center;
   overflow: hidden;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  position: relative;
+  padding-left: 3.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .banner-icon {
   flex-shrink: 0;
-  padding: 0 0.75rem;
-  font-size: 0.9rem;
-  z-index: 2;
-  background: var(--primary);
-  position: relative;
+  padding: 0 1rem;
+  font-size: 1rem;
+  z-index: 10;
+  background: inherit;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 8px rgba(234, 88, 12, 0.6)); /* Glow effect */
+}
+
+.banner-icon::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to right, #0f172a, transparent); /* Smooth fade for entering text */
+  pointer-events: none;
 }
 
 .banner-marquee-track {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 3rem; /* More space between repetitions */
   white-space: nowrap;
-  animation: banner-scroll 20s linear infinite;
+  animation: banner-scroll 45s linear infinite; /* Slower, majestic movement */
 }
 
 .banner-text {
@@ -57,7 +79,7 @@
 
 @keyframes banner-scroll {
   0%   { transform: translateX(0); }
-  100% { transform: translateX(-33.33%); }
+  100% { transform: translateX(-10%); } /* -10% perfectly loops with 10 copies */
 }
 
 .layout-maintenance-banner {

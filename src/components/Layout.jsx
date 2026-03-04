@@ -128,12 +128,12 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
         <div className="layout-announcement-banner">
           <span className="banner-icon">⚡</span>
           <div className="banner-marquee-track">
-            <span className="banner-text">{globalSettings.announcement}</span>
-            <span className="banner-separator">✦</span>
-            <span className="banner-text">{globalSettings.announcement}</span>
-            <span className="banner-separator">✦</span>
-            <span className="banner-text">{globalSettings.announcement}</span>
-            <span className="banner-separator">✦</span>
+            {[...Array(10)].map((_, i) => (
+              <React.Fragment key={i}>
+                <span className="banner-text">{globalSettings.announcement}</span>
+                <span className="banner-separator">✦</span>
+              </React.Fragment>
+            ))}
           </div>
         </div>
       )}
