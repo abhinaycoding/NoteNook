@@ -63,7 +63,7 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (resource.data.user_id == request.auth.uid || isAdmin());
     }
     match /tasks/{docId} {
-      allow read: if request.auth != null && (resource.data.user_id == request.auth.uid || resource.data.completed == true || isAdmin());
+      allow read: if request.auth != null;
       allow create: if request.auth != null && (request.resource.data.user_id == request.auth.uid || isAdmin());
       allow update, delete: if request.auth != null && (resource.data.user_id == request.auth.uid || isAdmin());
     }
@@ -90,7 +90,7 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && (isMember(roomId) || resource.data.created_by == request.auth.uid || isAdmin());
     }
     match /room_members/{memberId} {
-      allow read: if request.auth != null && (resource.data.user_id == request.auth.uid || isMember(resource.data.room_id));
+      allow read: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.user_id == request.auth.uid;
     }
