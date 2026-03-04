@@ -2,197 +2,200 @@ import React, { useState, useEffect, useRef } from 'react'
 import { db } from '../lib/firebase'
 import {
   collection, query, where, getDocs, onSnapshot,
-  addDoc, setDoc, doc, getDoc, serverTimestamp, orderBy, documentId
+  addDoc, setDoc, doc, getDoc, serverTimestamp, orderBy
 } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlan } from '../contexts/PlanContext'
 import './DirectMessages.css'
 
-// ------------------------------------------------------------------
-// Helper: always produces the same conversation ID for two UIDs.
-// Sorted alphabetically so [A,B] and [B,A] yield the same key.
-// ------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: deterministic conversation ID — always sorted alphabetically so both
+// sides of the conversation produce the same key: "uid1_uid2"
+// ─────────────────────────────────────────────────────────────────────────────
 const getConvoId = (uid1, uid2) => [uid1, uid2].sort().join('_')
 
 const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
   const { user, profile } = useAuth()
   const { isPro } = usePlan()
 
-  const [friends, setFriends]           = useState([])
-  const [unreadDMs, setUnreadDMs]       = useState(new Set())
-  const [lastMsgMap, setLastMsgMap]     = useState({}) // uid → { text, time, fromMe }
+  const [conversations, setConversations] = useState([])  // [{uid, profile, convoId, lastMsg, lastTime, unread}]
+  const [unreadSet, setUnreadSet]         = useState(new Set()) // set of convoIds
   const [selectedFriend, setSelectedFriend] = useState(null)
-  const [messages, setMessages]         = useState([])
-  const [newMsg, setNewMsg]             = useState('')
-  const [sending, setSending]           = useState(false)
+  const [messages, setMessages]           = useState([])
+  const [newMsg, setNewMsg]               = useState('')
+  const [sending, setSending]             = useState(false)
   const [isFriendTyping, setIsFriendTyping] = useState(false)
 
   const messagesEndRef   = useRef(null)
-  const unsubMsgsRef     = useRef(null) // listener for messages subcollection
-  const unsubConvoRef    = useRef(null) // listener for the convo doc (typing)
+  const unsubMsgsRef     = useRef(null)
+  const unsubConvoRef    = useRef(null)
   const typingTimeoutRef = useRef(null)
   const fileInputRef     = useRef(null)
 
-  // ──────────────────────────────────────────────────────────────
-  // Auto-select friend passed in from PeopleSearch
-  // ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // Auto-select a friend when passed in from PeopleSearch
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isOpen && initialFriend && initialFriend.uid !== selectedFriend?.uid) {
       setSelectedFriend(initialFriend)
     }
   }, [isOpen, initialFriend])
 
-  // ──────────────────────────────────────────────────────────────
-  // Load recent-chat sidebar (friends + unread state)
-  // Listens to the current user's unread_dms subcollection and
-  // merges with accepted friend IDs so the list is always complete.
-  // ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // CONVERSATION LIST — Instagram-style:
+  //   1. Query /dms where participants array-contains our UID → finds ALL
+  //      conversations (both sent & received) regardless of friend status
+  //   2. Query /unread_dms to track which convoIds have unseen messages
+  //   3. Also merge accepted friends who have no message history yet
+  //   The list refreshes in real-time via a listener on unread_dms (cheap),
+  //   while dms are polled each time the panel opens.
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user?.uid || !isOpen) return
     let active = true
 
-    const unsubUnread = onSnapshot(
-      collection(db, 'profiles', user.uid, 'unread_dms'),
-      async (snap) => {
-        // ── 1. Track which convoIds have unread messages ──
-        const activeUnread = snap.docs.filter(d => d.data().unread).map(d => d.id)
-        setUnreadDMs(new Set(activeUnread))
-        if (onUnreadChange) onUnreadChange(activeUnread.length > 0)
-
-        // ── 2. Build uid → last-message time from unread_dms docs ──
-        const timeMap = {}
-        const recentUids = []
-        snap.docs.forEach(d => {
-          // convoId format: "uid1_uid2" (alphabetically sorted)
-          const otherUid = d.id.split('_').find(p => p !== user.uid)
+    const loadConversations = async () => {
+      try {
+        // ── Step 1: All dms conversations where I am a participant ──────────
+        const dmsSnap = await getDocs(
+          query(collection(db, 'dms'), where('participants', 'array-contains', user.uid))
+        )
+        const convoUids = [] // other-user UIDs from real conversations
+        const convoMeta = {} // otherUid → { convoId, lastTime }
+        dmsSnap.docs.forEach(d => {
+          const data = d.data()
+          const otherUid = (data.participants || []).find(p => p !== user.uid)
           if (otherUid) {
-            recentUids.push(otherUid)
-            const data = d.data()
-            timeMap[otherUid] =
-              data.last_message_time?.toMillis?.() ||
-              data.touched?.toMillis?.() ||
-              1
+            convoUids.push(otherUid)
+            convoMeta[otherUid] = {
+              convoId:  d.id,
+              lastTime: data.last_activity?.toMillis?.() || 0,
+            }
           }
         })
 
-        try {
-          // ── 3. Also pull accepted friend UIDs (both old & new field names) ──
-          const [s1, s2, s3, s4] = await Promise.all([
-            getDocs(query(collection(db, 'friend_requests'), where('from_uid', '==', user.uid), where('status', '==', 'accepted'))),
-            getDocs(query(collection(db, 'friend_requests'), where('to_uid',   '==', user.uid), where('status', '==', 'accepted'))),
-            getDocs(query(collection(db, 'friend_requests'), where('from',     '==', user.uid), where('status', '==', 'accepted'))),
-            getDocs(query(collection(db, 'friend_requests'), where('to',       '==', user.uid), where('status', '==', 'accepted'))),
-          ])
+        // ── Step 2: Accepted friends (so they appear even before first message) ──
+        const [s1, s2, s3, s4] = await Promise.all([
+          getDocs(query(collection(db, 'friend_requests'), where('from_uid', '==', user.uid), where('status', '==', 'accepted'))),
+          getDocs(query(collection(db, 'friend_requests'), where('to_uid',   '==', user.uid), where('status', '==', 'accepted'))),
+          getDocs(query(collection(db, 'friend_requests'), where('from',     '==', user.uid), where('status', '==', 'accepted'))),
+          getDocs(query(collection(db, 'friend_requests'), where('to',       '==', user.uid), where('status', '==', 'accepted'))),
+        ])
+        const friendUids = [
+          ...s1.docs.map(d => d.data().to_uid   || d.id.split('_').find(id => id !== user.uid)),
+          ...s2.docs.map(d => d.data().from_uid  || d.id.split('_').find(id => id !== user.uid)),
+          ...s3.docs.map(d => d.data().to        || d.id.split('_').find(id => id !== user.uid)),
+          ...s4.docs.map(d => d.data().from      || d.id.split('_').find(id => id !== user.uid)),
+        ].filter(id => !!id && id !== user.uid)
 
-          const friendIds = [
-            ...s1.docs.map(d => d.data().to_uid   || d.id.split('_').find(id => id !== user.uid)),
-            ...s2.docs.map(d => d.data().from_uid  || d.id.split('_').find(id => id !== user.uid)),
-            ...s3.docs.map(d => d.data().to        || d.id.split('_').find(id => id !== user.uid)),
-            ...s4.docs.map(d => d.data().from      || d.id.split('_').find(id => id !== user.uid)),
-          ].filter(id => !!id && id !== user.uid)
+        // ── Step 3: Merge, deduplicate, sort by last activity ──────────────
+        const allUids = [...new Set([...convoUids, ...friendUids])]
+        if (!active || allUids.length === 0) { setConversations([]); return }
 
-          // ── 4. Combine: recent chats first, then friends without a chat ──
-          const allTargetIds = [...new Set([...recentUids, ...friendIds])]
-          if (!active) return
-          if (allTargetIds.length === 0) { setFriends([]); return }
+        // Fetch profiles for all involved users
+        const profileSnaps = await Promise.all(
+          allUids.map(uid => getDoc(doc(db, 'profiles', uid)))
+        )
 
-          // ── 5. Fetch profiles (each profile doc uses UID as its document ID) ──
-          const profileSnaps = await Promise.all(
-            allTargetIds.map(uid => getDoc(doc(db, 'profiles', uid)))
-          )
-          let loadedFriends = profileSnaps
-            .filter(s => s.exists())
-            .map(s => ({ uid: s.id, ...s.data() }))
-
-          // Sort by most-recent message time, then alphabetically
-          loadedFriends.sort(
-            (a, b) =>
-              (timeMap[b.uid] || 0) - (timeMap[a.uid] || 0) ||
-              (a.full_name?.localeCompare(b.full_name) ?? 0)
-          )
-          if (active) setFriends(loadedFriends)
-
-          // ── 6. Fetch last-message preview for each recent chat ──
-          const msgPreviews = {}
-          await Promise.all(recentUids.map(async (otherUid) => {
-            const convoId = getConvoId(user.uid, otherUid)
-            try {
-              // orderBy is safe here because we only need the LATEST one
-              // and we don't care about pending timestamps in a preview
-              const lastSnap = await getDocs(
-                query(
-                  collection(db, 'dms', convoId, 'messages'),
-                  orderBy('timestamp', 'desc')
-                )
-              )
-              if (!lastSnap.empty) {
-                const msg = lastSnap.docs[0].data()
-                msgPreviews[otherUid] = {
-                  text:   msg.image_url ? '📷 Image' : (msg.text || ''),
-                  time:   msg.timestamp?.toMillis?.() || 0,
-                  fromMe: msg.from === user.uid,
-                }
+        // ── Step 4: Fetch last message text for each conversation ──────────
+        const lastMsgMap = {}
+        await Promise.all(convoUids.map(async uid => {
+          const convoId = convoMeta[uid]?.convoId || getConvoId(user.uid, uid)
+          try {
+            const snap = await getDocs(
+              query(collection(db, 'dms', convoId, 'messages'), orderBy('timestamp', 'desc'))
+            )
+            if (!snap.empty) {
+              const msg = snap.docs[0].data()
+              lastMsgMap[uid] = {
+                text:   msg.image_url ? '📷 Image' : (msg.text || ''),
+                time:   msg.timestamp?.toMillis?.() || 0,
+                fromMe: msg.from === user.uid,
               }
-            } catch (_) {}
-          }))
-          if (active) setLastMsgMap(msgPreviews)
+            }
+          } catch (_) {}
+        }))
 
-        } catch (err) {
-          console.warn('DM: sidebar load error —', err.message)
-        }
+        const items = profileSnaps
+          .filter(s => s.exists())
+          .map(s => ({
+            uid:     s.id,
+            profile: s.data(),
+            convoId: convoMeta[s.id]?.convoId || getConvoId(user.uid, s.id),
+            lastMsg: lastMsgMap[s.id] || null,
+            lastTime: convoMeta[s.id]?.lastTime || 0,
+          }))
+
+        // Sort: most recent first, then alphabetically
+        items.sort((a, b) =>
+          (b.lastTime || 0) - (a.lastTime || 0) ||
+          (a.profile?.full_name?.localeCompare(b.profile?.full_name) ?? 0)
+        )
+
+        if (active) setConversations(items)
+      } catch (err) {
+        console.warn('DM: conversation list error —', err.message)
+      }
+    }
+
+    loadConversations()
+
+    // ── Unread badge tracker (real-time listener on cheaply updated subcollection) ──
+    const unsubUnread = onSnapshot(
+      collection(db, 'profiles', user.uid, 'unread_dms'),
+      (snap) => {
+        const unreadConvoIds = snap.docs.filter(d => d.data().unread).map(d => d.id)
+        setUnreadSet(new Set(unreadConvoIds))
+        if (onUnreadChange) onUnreadChange(unreadConvoIds.length > 0)
+
+        // Re-load conversation list whenever unread state changes (catches newly received DMs)
+        loadConversations()
       },
-      (err) => console.warn('DM: unread_dms snapshot error —', err.message)
+      (err) => console.warn('DM: unread listener error —', err.message)
     )
 
     return () => { active = false; unsubUnread() }
-  }, [user?.uid, isOpen, onUnreadChange])
+  }, [user?.uid, isOpen])
 
-  // ──────────────────────────────────────────────────────────────
-  // Open a conversation: listen to messages + typing indicator.
+  // ─────────────────────────────────────────────────────────────────────────
+  // OPEN A CONVERSATION — Listen to messages + typing indicator.
   //
-  // KEY FIX: We do NOT use orderBy('timestamp', 'asc') in the
-  // query because Firestore excludes documents where `timestamp`
-  // is still null (while awaiting serverTimestamp resolution).
-  // Instead we fetch ALL messages and sort on the client so
-  // freshly sent messages (with pending timestamps) are always
-  // visible immediately.
-  // ──────────────────────────────────────────────────────────────
+  // ⚡ No orderBy in the messages query — Firestore silently drops documents
+  //    with a pending serverTimestamp (null). We sort on the client instead
+  //    so freshly sent messages are always visible immediately.
+  // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedFriend || !user?.uid) return
 
-    // Tear down old listeners before setting up new ones
     if (unsubMsgsRef.current)  unsubMsgsRef.current()
     if (unsubConvoRef.current) unsubConvoRef.current()
 
     const convoId = getConvoId(user.uid, selectedFriend.uid)
 
-    // Mark this conversation as read when the user opens it
+    // Mark conversation as read when opened
     if (isOpen) {
       setDoc(
         doc(db, 'profiles', user.uid, 'unread_dms', convoId),
         { unread: false, touched: serverTimestamp() },
         { merge: true }
-      ).catch(err => console.warn('DM: mark-read error —', err.message))
+      ).catch(() => {})
     }
 
-    // ── Message listener (no server-side orderBy — sort on client) ──
+    // Real-time message listener (no server-side orderBy — sort on client)
     unsubMsgsRef.current = onSnapshot(
       collection(db, 'dms', convoId, 'messages'),
       (snap) => {
         const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-
-        // Sort by timestamp ascending; treat null/pending as "now" so
-        // they always appear at the bottom rather than disappearing.
+        // Null/pending timestamps sort to "now" so they appear at the bottom
         msgs.sort((a, b) => {
           const ta = a.timestamp?.toMillis?.() ?? Date.now()
           const tb = b.timestamp?.toMillis?.() ?? Date.now()
           return ta - tb
         })
-
         setMessages(msgs)
         setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
 
-        // Also mark read if a new message arrives while chat is open
+        // Auto-mark read if this chat is open when messages arrive
         if (isOpen) {
           setDoc(
             doc(db, 'profiles', user.uid, 'unread_dms', convoId),
@@ -204,17 +207,10 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
       (err) => console.warn('DM: messages snapshot error —', err.message)
     )
 
-    // ── Typing indicator listener ──
-    unsubConvoRef.current = onSnapshot(
-      doc(db, 'dms', convoId),
-      (snap) => {
-        if (snap.exists()) {
-          setIsFriendTyping(!!snap.data()[`typing_${selectedFriend.uid}`])
-        } else {
-          setIsFriendTyping(false)
-        }
-      }
-    )
+    // Typing indicator listener
+    unsubConvoRef.current = onSnapshot(doc(db, 'dms', convoId), (snap) => {
+      setIsFriendTyping(snap.exists() ? !!snap.data()[`typing_${selectedFriend.uid}`] : false)
+    })
 
     return () => {
       if (unsubMsgsRef.current)  unsubMsgsRef.current()
@@ -222,20 +218,20 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
     }
   }, [selectedFriend, user?.uid, isOpen])
 
-  // ──────────────────────────────────────────────────────────────
-  // Send a text message
-  // ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // SEND TEXT MESSAGE
+  // Also writes the participants array + last_activity to the dms doc so that
+  // the conversation appears in the recipient's list immediately (Instagram-style).
+  // ─────────────────────────────────────────────────────────────────────────
   const sendMessage = async (e) => {
     e.preventDefault()
     if (!newMsg.trim() || !selectedFriend || sending) return
     setSending(true)
-
     try {
       const convoId = getConvoId(user.uid, selectedFriend.uid)
 
       // Clear typing indicator immediately
-      setDoc(doc(db, 'dms', convoId), { [`typing_${user.uid}`]: false }, { merge: true })
-        .catch(() => {})
+      setDoc(doc(db, 'dms', convoId), { [`typing_${user.uid}`]: false }, { merge: true }).catch(() => {})
 
       // Write the message
       await addDoc(collection(db, 'dms', convoId, 'messages'), {
@@ -245,19 +241,27 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
         timestamp: serverTimestamp(),
       })
 
-      // Notify recipient of unread message
+      // ⬇ This is what makes the chat appear for the RECIPIENT instantly —
+      //   participants array lets us query all DMs for a user without relying
+      //   on the friend list.
+      await setDoc(doc(db, 'dms', convoId), {
+        participants:  [user.uid, selectedFriend.uid],
+        last_activity: serverTimestamp(),
+      }, { merge: true })
+
+      // Notify recipient
       await setDoc(
         doc(db, 'profiles', selectedFriend.uid, 'unread_dms', convoId),
         { unread: true, last_message_time: serverTimestamp() },
         { merge: true }
-      ).catch(err => console.warn('DM: unread notify error —', err.message))
+      ).catch(() => {})
 
-      // Pin this conversation in my own sidebar
+      // Pin to my own sidebar
       await setDoc(
         doc(db, 'profiles', user.uid, 'unread_dms', convoId),
         { unread: false, last_message_time: serverTimestamp() },
         { merge: true }
-      ).catch(err => console.warn('DM: sidebar pin error —', err.message))
+      ).catch(() => {})
 
       setNewMsg('')
     } catch (err) {
@@ -267,14 +271,11 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
     }
   }
 
-  // ──────────────────────────────────────────────────────────────
-  // Send an image (Pro gated)
-  // ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // SEND IMAGE (Pro gated)
+  // ─────────────────────────────────────────────────────────────────────────
   const handleImageClick = () => {
-    if (!isPro) {
-      alert('Image sharing is a Pro feature! Please upgrade to send images.')
-      return
-    }
+    if (!isPro) { alert('Image sharing is a Pro feature! Please upgrade.'); return }
     fileInputRef.current?.click()
   }
 
@@ -282,33 +283,23 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 2 * 1024 * 1024) { alert('Image must be smaller than 2MB'); return }
-
     setSending(true)
     try {
       const reader = new FileReader()
       reader.onloadend = async () => {
-        const base64Str = reader.result
-        const convoId   = getConvoId(user.uid, selectedFriend.uid)
-
+        const convoId = getConvoId(user.uid, selectedFriend.uid)
         await addDoc(collection(db, 'dms', convoId, 'messages'), {
-          from:      user.uid,
-          fromName:  profile?.full_name || 'Scholar',
-          text:      '',
-          image_url: base64Str,
-          timestamp: serverTimestamp(),
+          from: user.uid, fromName: profile?.full_name || 'Scholar',
+          text: '', image_url: reader.result, timestamp: serverTimestamp(),
         })
-
-        await setDoc(
-          doc(db, 'profiles', selectedFriend.uid, 'unread_dms', convoId),
-          { unread: true, last_message_time: serverTimestamp() },
-          { merge: true }
-        ).catch(err => console.warn('DM: unread img notify error —', err.message))
-
-        await setDoc(
-          doc(db, 'profiles', user.uid, 'unread_dms', convoId),
-          { unread: false, last_message_time: serverTimestamp() },
-          { merge: true }
-        ).catch(err => console.warn('DM: sidebar img pin error —', err.message))
+        await setDoc(doc(db, 'dms', convoId), {
+          participants: [user.uid, selectedFriend.uid],
+          last_activity: serverTimestamp(),
+        }, { merge: true })
+        await setDoc(doc(db, 'profiles', selectedFriend.uid, 'unread_dms', convoId),
+          { unread: true, last_message_time: serverTimestamp() }, { merge: true }).catch(() => {})
+        await setDoc(doc(db, 'profiles', user.uid, 'unread_dms', convoId),
+          { unread: false, last_message_time: serverTimestamp() }, { merge: true }).catch(() => {})
       }
       reader.readAsDataURL(file)
     } catch (err) {
@@ -319,35 +310,32 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
     }
   }
 
-  // ──────────────────────────────────────────────────────────────
-  // Typing indicator (debounced)
-  // ──────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
+  // TYPING INDICATOR (debounced)
+  // ─────────────────────────────────────────────────────────────────────────
   const handleInputChange = (e) => {
     setNewMsg(e.target.value)
     if (!selectedFriend || !user) return
     const convoId = getConvoId(user.uid, selectedFriend.uid)
-
     setDoc(doc(db, 'dms', convoId), { [`typing_${user.uid}`]: true }, { merge: true }).catch(() => {})
-
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     typingTimeoutRef.current = setTimeout(() => {
       setDoc(doc(db, 'dms', convoId), { [`typing_${user.uid}`]: false }, { merge: true }).catch(() => {})
     }, 2000)
   }
 
-  // ── Online status helper (active within last 3 minutes) ──
-  const isOnline = (timestamp) => {
-    if (!timestamp) return false
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-    return (Date.now() - date.getTime()) < 3 * 60 * 1000
+  // ─────────────────────────────────────────────────────────────────────────
+  // UTILITIES
+  // ─────────────────────────────────────────────────────────────────────────
+  const isOnline = (ts) => {
+    if (!ts) return false
+    const d = ts.toDate ? ts.toDate() : new Date(ts)
+    return Date.now() - d.getTime() < 3 * 60 * 1000
   }
 
-  // ── Time label helper ──
   const timeLabel = (ms) => {
     if (!ms) return ''
-    const d    = new Date(ms)
-    const now  = new Date()
-    const diffH = (now - d) / 3600000
+    const d = new Date(ms), diffH = (Date.now() - d) / 3600000
     return diffH < 24
       ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
@@ -369,40 +357,39 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
             </div>
 
             <div className="dm-friends-scroll">
-              {friends.length === 0 ? (
+              {conversations.length === 0 ? (
                 <div className="dm-empty">
                   <span>💬</span>
-                  <p>No conversations yet.<br/>Use the 👥 button to find people!</p>
+                  <p>No conversations yet.<br />Use the 👥 button to find people!</p>
                 </div>
               ) : (
-                friends.map(f => {
-                  const convoId  = getConvoId(user.uid, f.uid)
-                  const isUnread = unreadDMs.has(convoId)
-                  const preview  = lastMsgMap[f.uid]
-                  const isActive = selectedFriend?.uid === f.uid
+                conversations.map(({ uid, profile: fp, convoId, lastMsg, lastTime }) => {
+                  const isUnread = unreadSet.has(convoId)
+                  const isActive = selectedFriend?.uid === uid
+                  const friendObj = { uid, ...fp }
 
                   return (
                     <button
-                      key={f.uid}
+                      key={uid}
                       className={`dm-chat-row ${isActive ? 'dm-chat-row-active' : ''} ${isUnread ? 'dm-chat-row-unread' : ''}`}
-                      onClick={() => setSelectedFriend(f)}
+                      onClick={() => setSelectedFriend(friendObj)}
                     >
                       <div className="dm-chat-row-avatar">
-                        {f.photo_url
-                          ? <img src={f.photo_url} alt={f.full_name} />
-                          : <span>{f.avatar_emoji || f.full_name?.[0]?.toUpperCase() || '?'}</span>
+                        {fp?.photo_url
+                          ? <img src={fp.photo_url} alt={fp.full_name} />
+                          : <span>{fp?.avatar_emoji || fp?.full_name?.[0]?.toUpperCase() || '?'}</span>
                         }
-                        {isOnline(f.last_active) && <span className="dm-online-dot" />}
+                        {isOnline(fp?.last_active) && <span className="dm-online-dot" />}
                       </div>
                       <div className="dm-chat-row-info">
                         <div className="dm-chat-row-top">
-                          <span className="dm-chat-row-name">{f.full_name || 'Scholar'}</span>
-                          {preview?.time ? <span className="dm-chat-row-time">{timeLabel(preview.time)}</span> : null}
+                          <span className="dm-chat-row-name">{fp?.full_name || 'Scholar'}</span>
+                          {lastMsg?.time ? <span className="dm-chat-row-time">{timeLabel(lastMsg.time)}</span> : null}
                         </div>
                         <div className="dm-chat-row-preview">
-                          {preview ? (
+                          {lastMsg ? (
                             <span className={isUnread ? 'dm-preview-bold' : ''}>
-                              {preview.fromMe ? 'You: ' : ''}{preview.text}
+                              {lastMsg.fromMe ? 'You: ' : ''}{lastMsg.text}
                             </span>
                           ) : (
                             <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No messages yet</span>
@@ -422,11 +409,10 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
             {!selectedFriend ? (
               <div className="dm-chat-placeholder">
                 <span>👈</span>
-                <p>Select a friend to chat</p>
+                <p>Select a conversation to start chatting</p>
               </div>
             ) : (
               <>
-                {/* Chat header */}
                 <div className="dm-chat-header">
                   <div className="dm-friend-avatar sm">
                     {selectedFriend.photo_url
@@ -438,20 +424,14 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
                   <span className="dm-chat-name">{selectedFriend.full_name}</span>
                 </div>
 
-                {/* Messages */}
                 <div className="dm-messages">
                   {messages.length === 0 && <div className="dm-no-msgs">Say hi! 👋</div>}
                   {messages.map(m => (
-                    <div
-                      key={m.id}
-                      className={`dm-msg ${m.from === user.uid ? 'dm-msg-me' : 'dm-msg-them'}`}
-                    >
+                    <div key={m.id} className={`dm-msg ${m.from === user.uid ? 'dm-msg-me' : 'dm-msg-them'}`}>
                       {m.image_url && <img src={m.image_url} alt="Shared" className="dm-msg-img" />}
                       {m.text      && <div className="dm-msg-bubble">{m.text}</div>}
                     </div>
                   ))}
-
-                  {/* Typing indicator */}
                   {isFriendTyping && (
                     <div className="dm-typing-indicator">
                       <span /><span /><span />
@@ -460,14 +440,8 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Input row */}
                 <form className="dm-input-row" onSubmit={sendMessage}>
-                  <button
-                    type="button"
-                    className="dm-attach-btn"
-                    onClick={handleImageClick}
-                    title={isPro ? 'Send Image' : 'Image Sharing (Pro)'}
-                  >
+                  <button type="button" className="dm-attach-btn" onClick={handleImageClick} title={isPro ? 'Send Image' : 'Image Sharing (Pro)'}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                     </svg>
@@ -479,13 +453,7 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
                       </div>
                     )}
                   </button>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    ref={fileInputRef}
-                    style={{ display: 'none' }}
-                    onChange={handleImageUpload}
-                  />
+                  <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />
 
                   <input
                     className="dm-input"
@@ -495,11 +463,7 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
                     disabled={sending}
                     autoFocus
                   />
-                  <button
-                    type="submit"
-                    className="dm-send-btn"
-                    disabled={!newMsg.trim() || sending}
-                  >
+                  <button type="submit" className="dm-send-btn" disabled={!newMsg.trim() || sending}>
                     <svg viewBox="0 0 24 24" fill="currentColor">
                       <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                     </svg>
