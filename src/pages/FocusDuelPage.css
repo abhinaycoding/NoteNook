@@ -50,14 +50,15 @@
 }
 
 .duel-hub-title {
-  font-size: 2.2rem;
+  font-size: 2.6rem;
   font-weight: 900;
-  background: linear-gradient(135deg, #f97316, #ec4899, #a855f7);
+  background: linear-gradient(135deg, #fbbf24 0%, #f97316 40%, #dc2626 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   margin: 0;
+  filter: drop-shadow(0 0 18px rgba(249, 115, 22, 0.45));
 }
 
 .duel-hub-sub {
