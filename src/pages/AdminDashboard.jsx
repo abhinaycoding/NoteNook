@@ -39,6 +39,14 @@ const AdminDashboard = ({ onNavigate }) => {
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [passcodeError, setPasscodeError] = useState(false);
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [currentBroadcast, setCurrentBroadcast] = useState('');
+
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUserStats, setSelectedUserStats] = useState({ tasks: [], notes: [] });
+  
+  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [selectedRoomStats, setSelectedRoomStats] = useState({ chats: [], tasks: [], occupants: [] });
 
   useEffect(() => {
     // 1. Payments & Revenue breakdown
@@ -114,7 +122,12 @@ const AdminDashboard = ({ onNavigate }) => {
     const unsubSettings = onSnapshot(
       doc(db, 'settings', 'global'),
       (snap) => {
-        if (snap.exists()) setIsMaintenance(snap.data().maintenance_active === true);
+        if (snap.exists()) {
+          const data = snap.data();
+          setIsMaintenance(data.maintenance_active === true);
+          setIsBroadcasting(data.announcement_active === true);
+          setCurrentBroadcast(data.announcement || '');
+        }
       }, err => console.warn('settings:', err.message)
     );
 
@@ -148,10 +161,9 @@ const AdminDashboard = ({ onNavigate }) => {
     e.preventDefault();
     if (passcode === '2004') {
       try {
-        if (user && user.uid) { 
-          // Use setDoc with merge: true to ensure the document is created if it doesn't exist
-          await setDoc(doc(db, 'profiles', user.uid), { isAdmin: true }, { merge: true });
-        }
+        // We no longer permanently write isAdmin to Firestore here
+        // The user must already be an admin to even see the Command Center link.
+        // This passcode just acts as a secondary unlocking step.
         setIsUnlocked(true);
         setPasscodeError(false);
       } catch (err) {
@@ -224,6 +236,15 @@ const AdminDashboard = ({ onNavigate }) => {
     } catch { toast('Failed. Create settings/global doc first.', 'error'); }
   };
 
+  const handleStopBroadcast = async () => {
+    try {
+      await setDoc(doc(db, 'settings', 'global'), {
+        announcement_active: false
+      }, { merge: true });
+      toast('Broadcast stopped.', 'success');
+    } catch { toast('Failed to stop broadcast.', 'error'); }
+  };
+
   const handleToggleMaintenance = async () => {
     try {
       await setDoc(doc(db, 'settings', 'global'), {
@@ -238,6 +259,58 @@ const AdminDashboard = ({ onNavigate }) => {
       await updateDoc(doc(db, 'support_tickets', id), { resolved: isResolved });
       toast('Ticket status updated.', 'success');
     } catch { toast('Failed to update ticket.', 'error'); }
+  };
+
+  const handleViewUser = async (userObj) => {
+    setSelectedUser(userObj);
+    try {
+      const [tasksSnap, notesSnap] = await Promise.all([
+        getDocs(query(collection(db, 'tasks'), where('user_id', '==', userObj.id), limit(50))),
+        getDocs(query(collection(db, 'notes'), where('user_id', '==', userObj.id), limit(50)))
+      ]);
+      setSelectedUserStats({
+        tasks: tasksSnap.docs.map(d => ({id: d.id, ...d.data()})),
+        notes: notesSnap.docs.map(d => ({id: d.id, ...d.data()}))
+      });
+    } catch (e) {
+      toast('Failed to load user details', 'error');
+    }
+  };
+
+  const handleBanUser = async (userId, currentBanStatus) => {
+    try {
+      await updateDoc(doc(db, 'profiles', userId), { isBanned: !currentBanStatus });
+      toast(!currentBanStatus ? 'User banned from platform.' : 'User ban lifted.', 'success');
+    } catch { toast('Failed to update ban status.', 'error'); }
+  };
+
+  const handleViewRoom = async (roomObj) => {
+    setSelectedRoom(roomObj);
+    try {
+      const [chatsSnap, tasksSnap, occupantsSnap] = await Promise.all([
+        getDocs(query(collection(db, 'study_rooms', roomObj.id, 'messages'), orderBy('timestamp', 'desc'), limit(50))),
+        getDocs(query(collection(db, 'study_rooms', roomObj.id, 'tasks'), limit(50))),
+        getDocs(query(collection(db, 'room_members'), where('room_id', '==', roomObj.id)))
+      ]);
+      setSelectedRoomStats({
+        chats: chatsSnap.docs.map(d => ({id: d.id, ...d.data()})),
+        tasks: tasksSnap.docs.map(d => ({id: d.id, ...d.data()})),
+        occupants: occupantsSnap.docs.map(d => ({id: d.id, ...d.data()}))
+      });
+    } catch (e) {
+      toast('Failed to load room details', 'error');
+    }
+  };
+
+  const handleKickUser = async (memberId) => {
+    try {
+      await deleteDoc(doc(db, 'room_members', memberId));
+      toast('User kicked from room.', 'success');
+      setSelectedRoomStats(prev => ({
+        ...prev,
+        occupants: prev.occupants.filter(o => o.id !== memberId)
+      }));
+    } catch { toast('Failed to kick user.', 'error'); }
   };
 
   const filteredUsers = users.filter(u =>
@@ -423,20 +496,29 @@ const AdminDashboard = ({ onNavigate }) => {
                             <td align="left" className="font-bold">{u.full_name || 'Anonymous'}</td>
                             <td align="left" className="opacity-50 text-xs uppercase">{u.student_type || 'General'}</td>
                             <td align="left">
-                              <span className={`citadel-badge ${u.is_pro ? 'pro' : 'free'}`}>
+                              <span className={`citadel-badge ${u.is_pro ? 'pro' : 'free'}`} style={{ marginRight: '8px' }}>
                                 {u.is_pro ? 'PRO' : 'FREE'}
                               </span>
+                              {u.isBanned && (
+                                <span className="citadel-badge" style={{ background: '#ef4444', color: 'white' }}>BANNED</span>
+                              )}
                             </td>
                             <td align="right">
                               <div className="flex justify-end gap-2">
+                                <button className="citadel-action-btn" style={{ background: 'rgba(255,255,255,0.1)', color: 'white' }} onClick={() => handleViewUser(u)}>
+                                  Insights
+                                </button>
                                 <button
                                   className={`citadel-action-btn ${u.is_pro ? 'revoke' : 'grant'}`}
                                   onClick={() => handleGrantPro(u.id, !u.is_pro)}
                                 >
-                                  {u.is_pro ? 'Revoke Pro' : 'Grant Pro'}
+                                  {u.is_pro ? '- Pro' : '+ Pro'}
                                 </button>
-                                <button className="citadel-action-btn revoke" onClick={() => console.log('Terminate user', u.id)}>
-                                  Delete
+                                <button 
+                                  className={`citadel-action-btn ${u.isBanned ? 'grant' : 'revoke'}`} 
+                                  onClick={() => handleBanUser(u.id, u.isBanned)}
+                                >
+                                  {u.isBanned ? 'Unban' : 'Ban'}
                                 </button>
                               </div>
                             </td>
@@ -459,7 +541,7 @@ const AdminDashboard = ({ onNavigate }) => {
                     {rooms.map(r => {
                       const occupants = liveActivity.filter(l => l.room_id === r.id).length;
                       return (
-                        <div key={r.id} className={`citadel-room-status ${occupants > 0 ? 'active' : ''}`}>
+                        <div key={r.id} className={`citadel-room-status clickable-row ${occupants > 0 ? 'active' : ''}`} onClick={() => handleViewRoom(r)}>
                           <div className="room-name">{r.name}</div>
                           <div className="room-occupancy">
                             <span className="dot"></span>
@@ -591,20 +673,171 @@ const AdminDashboard = ({ onNavigate }) => {
                     >
                       {isMaintenance ? '🚫 DISENGAGE LOCKDOWN' : '🚨 ENGAGE PLATFORM LOCKDOWN'}
                     </button>
-                    <textarea
-                      className="citadel-textarea"
-                      placeholder="Broadcast to all scholarship terminals..."
-                      value={broadcast}
-                      onChange={e => setBroadcast(e.target.value)}
-                    />
-                    <button className="citadel-btn-main secondary w-full" onClick={handleBroadcast}>
-                      TRANSMIT BANNER
-                    </button>
+                    <div className="admin-broadcast-section">
+                      <h3 className="text-white font-bold mb-4">Platform Broadcast</h3>
+                      {isBroadcasting && (
+                        <div className="mb-4 p-4 rounded flex justify-between items-center" style={{background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)'}}>
+                          <div className="text-red-400">
+                            <span className="font-bold mr-2">LIVE:</span> 
+                            {currentBroadcast}
+                          </div>
+                          <button 
+                            className="citadel-btn-main" 
+                            style={{background: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.5)', color: 'white', padding: '0.5rem 1rem', minWidth: 'auto'}} 
+                            onClick={handleStopBroadcast}
+                          >
+                            STOP
+                          </button>
+                        </div>
+                      )}
+                      <textarea
+                        className="citadel-textarea mb-4"
+                        placeholder="Broadcast to all scholarship terminals..."
+                        value={broadcast}
+                        onChange={e => setBroadcast(e.target.value)}
+                      />
+                      <button className="citadel-btn-main secondary w-full" onClick={handleBroadcast}>
+                        TRANSMIT BANNER
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
+
+          {/* User Insights Modal */}
+          {selectedUser && (
+            <div className="admin-modal-overlay" onClick={() => setSelectedUser(null)}>
+              <div className="admin-modal-content" onClick={e => e.stopPropagation()}>
+                <div className="admin-modal-header">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">{selectedUser.full_name || 'Anonymous'}</h2>
+                    <p className="text-sm opacity-50">{selectedUser.email}</p>
+                  </div>
+                  <button className="admin-modal-close" onClick={() => setSelectedUser(null)}>×</button>
+                </div>
+                <div className="admin-modal-body">
+                  <div className="admin-grid-2">
+                    <div className="admin-panel">
+                      <div className="p-4 border-b border-[rgba(255,255,255,0.05)] font-bold">Recent Tasks ({selectedUserStats.tasks.length})</div>
+                      <div className="admin-log-box" style={{ border: 'none', background: 'transparent' }}>
+                        {selectedUserStats.tasks.length === 0 ? <p className="opacity-50 text-sm italic">No tasks found.</p> : null}
+                        {selectedUserStats.tasks.map(t => (
+                          <div key={t.id} className="admin-log-item">
+                            <div className="admin-log-meta">
+                              <span>{t.date || 'No Date'}</span>
+                              <span style={{ color: t.completed ? '#10b981' : '#ef4444' }}>{t.completed ? 'Done' : 'Pending'}</span>
+                            </div>
+                            <div>{t.title}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="admin-panel">
+                      <div className="p-4 border-b border-[rgba(255,255,255,0.05)] font-bold">Recent Notes ({selectedUserStats.notes.length})</div>
+                      <div className="admin-log-box" style={{ border: 'none', background: 'transparent' }}>
+                        {selectedUserStats.notes.length === 0 ? <p className="opacity-50 text-sm italic">No notes found.</p> : null}
+                        {selectedUserStats.notes.map(n => (
+                          <div key={n.id} className="admin-log-item">
+                            <div className="admin-log-meta">{new Date(n.created_at?.toDate?.() || Date.now()).toLocaleDateString()}</div>
+                            <div className="font-bold">{n.title}</div>
+                            <div className="text-xs opacity-70 mt-1 line-clamp-2">{n.content}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
+                    <button 
+                      className={`citadel-btn-main ${selectedUser.isBanned ? 'secondary' : 'active'}`}
+                      onClick={() => {
+                        handleBanUser(selectedUser.id, selectedUser.isBanned);
+                        setSelectedUser({...selectedUser, isBanned: !selectedUser.isBanned});
+                      }}
+                    >
+                      {selectedUser.isBanned ? 'RESTORE ACCESS' : 'BAN SCHOLAR'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Room Insights Modal */}
+          {selectedRoom && (
+            <div className="admin-modal-overlay" onClick={() => setSelectedRoom(null)}>
+              <div className="admin-modal-content" onClick={e => e.stopPropagation()}>
+                <div className="admin-modal-header">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">{selectedRoom.name}</h2>
+                    <p className="text-sm opacity-50">Code: {selectedRoom.code || 'N/A'}</p>
+                  </div>
+                  <button className="admin-modal-close" onClick={() => setSelectedRoom(null)}>×</button>
+                </div>
+                <div className="admin-modal-body">
+                  
+                  <div className="admin-panel mb-4">
+                    <div className="p-4 border-b border-[rgba(255,255,255,0.05)] font-bold">Active Occupants ({selectedRoomStats.occupants.length})</div>
+                    <div className="p-4 flex flex-wrap gap-2">
+                      {selectedRoomStats.occupants.length === 0 ? <p className="opacity-50 text-sm italic">Room is empty.</p> : null}
+                      {selectedRoomStats.occupants.map(o => (
+                        <div key={o.id} className="flex items-center gap-2 bg-[rgba(255,255,255,0.05)] px-3 py-1.5 rounded-full text-sm">
+                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          {o.user_name || 'Anonymous'}
+                          <button 
+                            className="ml-2 text-red-400 hover:text-red-300 font-bold px-1"
+                            onClick={() => handleKickUser(o.id)}
+                            title="Kick User"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="admin-grid-2">
+                    <div className="admin-panel">
+                      <div className="p-4 border-b border-[rgba(255,255,255,0.05)] font-bold">Chat Logs</div>
+                      <div className="admin-log-box" style={{ border: 'none', background: 'transparent' }}>
+                        {selectedRoomStats.chats.length === 0 ? <p className="opacity-50 text-sm italic">No messages found.</p> : null}
+                        {selectedRoomStats.chats.map(msg => (
+                          <div key={msg.id} className="admin-log-item">
+                            <div className="admin-log-meta">
+                              <span className="font-bold text-white">{msg.user_name || 'System'}</span>
+                              <span>{msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString() : 'Now'}</span>
+                            </div>
+                            <div className="text-sm">{msg.text}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="admin-panel">
+                      <div className="p-4 border-b border-[rgba(255,255,255,0.05)] font-bold">Collab Tasks</div>
+                      <div className="admin-log-box" style={{ border: 'none', background: 'transparent' }}>
+                        {selectedRoomStats.tasks.length === 0 ? <p className="opacity-50 text-sm italic">No collaborative tasks found.</p> : null}
+                        {selectedRoomStats.tasks.map(t => (
+                          <div key={t.id} className="admin-log-item">
+                            <div className="admin-log-meta">
+                              <span>Assigned to: {t.assignee_name || 'Unassigned'}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span>{t.title}</span>
+                              <span style={{ color: t.completed ? '#10b981' : '#ef4444', fontSize: '0.7rem' }}>
+                                {t.completed ? 'Done' : 'Pending'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          )}
+
         </main>
       </div>
     </div>

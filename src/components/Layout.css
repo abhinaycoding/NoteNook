@@ -276,6 +276,17 @@
   position: relative;
 }
 
+.layout-unread-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+
 .notif-badge {
   position: absolute;
   top: 2px;

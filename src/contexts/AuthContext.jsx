@@ -2,7 +2,7 @@
 import React, { createContext, useState, useEffect, useRef, useContext, useCallback } from 'react'
 import { auth, db } from '../lib/firebase'
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, setDoc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 
 export const AuthContext = createContext(undefined)
 
@@ -22,7 +22,12 @@ export const AuthProvider = ({ children }) => {
       if (flowId !== authFlowIdRef.current) return
 
       if (docSnap.exists()) {
-        setProfile(docSnap.data())
+        const data = docSnap.data()
+        if (data.isBanned) {
+          await firebaseSignOut(auth)
+          return
+        }
+        setProfile(data)
       } else {
         // Auto-initialize profile if it doesn't exist
         const newProfile = {
@@ -76,9 +81,14 @@ export const AuthProvider = ({ children }) => {
       await hydrateProfile(firebaseUser.uid, flowId)
 
       // Set up real-time listener for profile changes (replaces multiple manual refreshes)
-      unsubscribeProfile = onSnapshot(doc(db, 'profiles', firebaseUser.uid), (snapshot) => {
+      unsubscribeProfile = onSnapshot(doc(db, 'profiles', firebaseUser.uid), async (snapshot) => {
         if (flowId === authFlowIdRef.current && snapshot.exists()) {
-          setProfile(snapshot.data())
+          const data = snapshot.data()
+          if (data.isBanned) {
+            await firebaseSignOut(auth)
+          } else {
+            setProfile(data)
+          }
         }
       })
     })
@@ -89,6 +99,41 @@ export const AuthProvider = ({ children }) => {
       authFlowIdRef.current += 1
     }
   }, [hydrateProfile])
+
+  // Heartbeat for online status
+  useEffect(() => {
+    if (!user?.uid) return
+
+    const updatePresence = async () => {
+      try {
+        if (document.visibilityState === 'visible') {
+          await updateDoc(doc(db, 'profiles', user.uid), { 
+            last_active: serverTimestamp(),
+            // Auto-ensure the owner is marked as admin in the DB too
+            ...(user.email?.toLowerCase() === 'abhinaynachankar7@gmail.com' ? { isAdmin: true } : {})
+          })
+        }
+      } catch (err) {
+        console.warn('Presence update failed:', err.message)
+      }
+    }
+
+    updatePresence() // Initial ping
+    const interval = setInterval(updatePresence, 60000) // Every 60s
+
+    // Also ping when returning to the tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        updatePresence()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [user?.uid])
 
   const signOut = async () => {
     try {
@@ -114,7 +159,7 @@ export const AuthProvider = ({ children }) => {
     profile,
     profileReady,
     loading,
-    isAdmin: profile?.isAdmin || false,
+    isAdmin: profile?.isAdmin || user?.email?.toLowerCase() === 'abhinaynachankar7@gmail.com',
     signOut,
     refreshProfile,
     // session is maintained as undefined/null for compat, firebase uses currentUser

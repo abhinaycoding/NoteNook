@@ -43,6 +43,7 @@ const Sidebar = ({ activeTab, onNavigate }) => {
     { id: 'rooms', label: 'Study Rooms', icon: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></> },
     { id: 'calendar', label: 'Calendar', icon: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></> },
     { id: 'goals', label: 'Goals', icon: <><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></> },
+    { id: 'leaderboard', label: 'Leaderboard', icon: <><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></> },
     { id: 'exams', label: 'Exams Pro', icon: <><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></>, pro: true },
     { id: 'resume', label: 'Resume Pro', icon: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></>, pro: true },
   ]
@@ -92,6 +93,7 @@ const Sidebar = ({ activeTab, onNavigate }) => {
                 <span className="nav-label">
                   {tab.label}
                   {tab.pro && !isPro && <span className="pro-lock-badge">Pro</span>}
+                  {tab.adminOnly && <span className="pro-lock-badge" style={{background: '#ef4444', color: 'white'}}>Admin</span>}
                 </span>
               </button>
             ))}
@@ -135,7 +137,7 @@ const Sidebar = ({ activeTab, onNavigate }) => {
             </div>
           </div>
 
-          {!isPro && (
+          {!isPro && !isAdmin && (
             <button className="pro-upgrade-btn" onClick={() => onNavigate('pricing')}>
               PRO
             </button>
@@ -172,7 +174,7 @@ const Sidebar = ({ activeTab, onNavigate }) => {
             </div>
 
             <div className="mobile-menu-footer">
-              {!isPro && (
+              {!isPro && !isAdmin && (
                 <button className="pro-upgrade-btn" onClick={() => handleNav('pricing')}>
                   Upgrade to PRO
                 </button>

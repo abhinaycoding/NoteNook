@@ -6,6 +6,8 @@ import { db } from '../lib/firebase';
 import { doc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import MaintenanceMode from './MaintenanceMode';
 import SupportWidget from './SupportWidget';
+import DirectMessages from './DirectMessages';
+import PeopleSearch from './PeopleSearch';
 import './Layout.css';
 
 const toProperCase = (str) =>
@@ -44,7 +46,7 @@ const ALL_PAGES = [
 ];
 
 const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
-  const { profile, user, signOut } = useAuth();
+  const { profile, user, signOut, isAdmin } = useAuth();
   const { isDark, toggle } = useTheme();
   const [globalSettings, setGlobalSettings] = useState(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
@@ -52,6 +54,10 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
   const [notifications, setNotifications] = useState([]);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [cmdQuery, setCmdQuery] = useState('');
+  const [dmOpen, setDmOpen] = useState(false);
+  const [hasUnreadDMs, setHasUnreadDMs] = useState(false);
+  const [peopleSearchOpen, setPeopleSearchOpen] = useState(false);
+  const [dmInitialUser, setDmInitialUser] = useState(null);
   const avatarRef = useRef(null);
   const notifRef = useRef(null);
   const cmdInputRef = useRef(null);
@@ -113,7 +119,6 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
   );
 
   const isMaintenance = globalSettings?.maintenance_active === true;
-  const isAdmin = profile?.isAdmin === true;
 
   if (isMaintenance && !isAdmin) return <MaintenanceMode />;
 
@@ -155,6 +160,31 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
 
             {/* Right actions */}
             <div className="header-actions">
+
+              {/* People Search Button */}
+              <button
+                className={`header-icon-btn ${peopleSearchOpen ? 'active' : ''}`}
+                onClick={() => { setPeopleSearchOpen(p => !p); setDmOpen(false); setAvatarOpen(false); setNotifOpen(false); }}
+                title="Find People"
+                style={{ position: 'relative' }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </button>
+
+              {/* DM Button */}
+              <button
+                className={`header-icon-btn ${dmOpen ? 'active' : ''}`}
+                onClick={() => { setDmOpen(p => !p); setPeopleSearchOpen(false); setAvatarOpen(false); setNotifOpen(false); }}
+                title="Direct Messages"
+                style={{ position: 'relative' }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                {hasUnreadDMs && <span className="layout-unread-dot" />}
+              </button>
 
               {/* Ctrl+K search button */}
               <button className="header-icon-btn cmd-trigger" onClick={() => { setCmdOpen(true); setCmdQuery(''); }} title="Quick navigate (Ctrl+K)">
@@ -245,9 +275,11 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
                     <button className="dropdown-item" onClick={() => { onNavigate('settings'); setAvatarOpen(false); }}>
                       <span>⚙️</span> Settings
                     </button>
-                    <button className="dropdown-item" onClick={() => { onNavigate('admin'); setAvatarOpen(false); }}>
-                      <span>🛡️</span> Command Center
-                    </button>
+                    {isAdmin && (
+                      <button className="dropdown-item" onClick={() => { onNavigate('admin'); setAvatarOpen(false); }}>
+                        <span>🛡️</span> Command Center
+                      </button>
+                    )}
                     <div className="dropdown-divider" />
                     <button className="dropdown-item danger" onClick={async () => { await signOut(); onNavigate('landing'); }}>
                       <span>🚪</span> Log Out
@@ -314,6 +346,21 @@ const Layout = ({ children, onNavigate, activeTab, fullBleed = false }) => {
       )}
 
       {['dashboard', 'settings', 'profile', 'admin', 'pricing', 'customize', 'landing', 'goals', 'analytics'].includes(activeTab) && <SupportWidget />}
+      <DirectMessages 
+        isOpen={dmOpen} 
+        onClose={() => { setDmOpen(false); setDmInitialUser(null); }} 
+        onUnreadChange={setHasUnreadDMs} 
+        initialFriend={dmInitialUser} 
+      />
+      <PeopleSearch 
+        isOpen={peopleSearchOpen} 
+        onClose={() => setPeopleSearchOpen(false)} 
+        onStartChat={(person) => {
+          setDmInitialUser(person);
+          setPeopleSearchOpen(false);
+          setDmOpen(true);
+        }}
+      />
     </div>
   );
 };

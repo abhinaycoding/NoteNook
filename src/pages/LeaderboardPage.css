@@ -1,0 +1,293 @@
+/* ═══════════════════════════════════════
+   LEADERBOARD PAGE
+═══════════════════════════════════════ */
+
+.leaderboard-page {
+  padding: 2rem 2rem 6rem;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* ── Header ── */
+.lb-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.lb-title {
+  font-family: var(--font-serif);
+  font-size: 2.2rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.lb-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0.5rem 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+/* ── Tabs ── */
+.lb-tabs {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.lb-tab {
+  padding: 0.5rem 1.25rem;
+  border-radius: 50px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lb-tab:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.lb-tab-active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff !important;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+/* ── My Rank Banner ── */
+.lb-my-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: 50px;
+  padding: 0.6rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.lb-my-rank-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+}
+
+.lb-my-rank-num {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  color: var(--primary);
+  font-weight: 900;
+}
+
+/* ── Podium ── */
+.lb-podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  padding: 0 1rem;
+}
+
+.lb-podium-place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.lb-podium-medal { font-size: 1.75rem; }
+
+.lb-podium-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.lb-podium-place.gold .lb-podium-avatar {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  box-shadow: 0 4px 20px rgba(245,158,11,0.5);
+  width: 58px;
+  height: 58px;
+  font-size: 1.3rem;
+}
+.lb-podium-place.silver .lb-podium-avatar {
+  background: linear-gradient(135deg, #94a3b8, #cbd5e1);
+  box-shadow: 0 4px 16px rgba(148,163,184,0.4);
+}
+.lb-podium-place.bronze .lb-podium-avatar {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  box-shadow: 0 4px 16px rgba(180,83,9,0.4);
+}
+
+.lb-podium-name {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.lb-podium-score {
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: var(--primary);
+  font-family: var(--font-serif);
+}
+
+.lb-podium-block {
+  width: 100%;
+  border-radius: 12px 12px 0 0;
+}
+
+.lb-podium-place.gold .lb-podium-block { background: linear-gradient(to bottom, #f59e0b33, #f59e0b22); border-top: 2px solid #f59e0b; }
+.lb-podium-place.silver .lb-podium-block { background: linear-gradient(to bottom, #94a3b833, #94a3b822); border-top: 2px solid #94a3b8; }
+.lb-podium-place.bronze .lb-podium-block { background: linear-gradient(to bottom, #b4530933, #b4530922); border-top: 2px solid #b45309; }
+
+/* ── List ── */
+.lb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  transition: background 0.15s;
+}
+
+.lb-row:last-child { border-bottom: none; }
+.lb-row:hover { background: color-mix(in srgb, var(--primary) 4%, transparent); }
+.lb-row-me { background: color-mix(in srgb, var(--primary) 8%, transparent) !important; }
+
+.lb-rank {
+  width: 2rem;
+  text-align: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.lb-rank-num {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  display: block;
+}
+
+.lb-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), #f59e0b);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.lb-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.lb-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lb-type {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.lb-score {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.lb-score-label {
+  font-size: 0.55rem;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.lb-you-badge, .lb-pro-badge {
+  font-size: 0.48rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 50px;
+}
+
+.lb-you-badge {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.lb-pro-badge {
+  background: linear-gradient(135deg, #f59e0b33, #ea580c33);
+  color: #f59e0b;
+  border: 1px solid #f59e0b55;
+}
+
+/* ── Skeleton ── */
+.lb-skeleton {
+  height: 58px;
+  background: linear-gradient(90deg, var(--border) 25%, color-mix(in srgb, var(--border) 60%, transparent) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

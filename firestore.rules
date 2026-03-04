@@ -5,7 +5,10 @@ service cloud.firestore {
     
     // Helper functions
     function isAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true;
+      return request.auth != null && (
+        request.auth.token.email.lower() == 'abhinaynachankar7@gmail.com' ||
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.isAdmin == true
+      );
     }
     function isMember(roomId) {
       return exists(/databases/$(database)/documents/room_members/$(roomId + '_' + request.auth.uid));
@@ -15,6 +18,10 @@ service cloud.firestore {
     match /profiles/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      match /unread_dms/{docId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null;
+      }
     }
 
     // 1b. Friend Requests
@@ -138,6 +145,16 @@ service cloud.firestore {
       allow read: if request.auth != null && isMember(resource.data.room_id);
       allow create: if request.auth != null && isMember(request.resource.data.room_id);
       allow update, delete: if request.auth != null && isMember(resource.data.room_id);
+    }
+
+    // Direct Messages — only the two participants (whose UIDs form the conversation ID) can access
+    match /dms/{convoId} {
+      allow read, write: if request.auth != null && convoId.matches('.*' + request.auth.uid + '.*');
+      match /messages/{msgId} {
+        allow read: if request.auth != null && convoId.matches('.*' + request.auth.uid + '.*');
+        allow create: if request.auth != null && convoId.matches('.*' + request.auth.uid + '.*') && request.resource.data.from == request.auth.uid;
+        allow delete: if request.auth != null && resource.data.from == request.auth.uid;
+      }
     }
   }
 }

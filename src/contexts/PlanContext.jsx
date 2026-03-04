@@ -7,22 +7,23 @@ import { useAuth } from './AuthContext'
 const PlanContext = createContext(null)
 
 export function PlanProvider({ children }) {
-  const { user } = useAuth()
-  const [isPro, setIsPro] = useState(false)
+  const { user, isAdmin } = useAuth()
+  const [isProStorage, setIsProStorage] = useState(false)
+  const isPro = isAdmin || isProStorage
 
   // Load plan from Firestore profile
   useEffect(() => {
     if (!user?.uid) {
-      setIsPro(false)
+      setIsProStorage(false)
       return
     }
 
     // Subscribe to profile changes
     const unsubscribe = onSnapshot(doc(db, 'profiles', user.uid), (snapshot) => {
       if (snapshot.exists()) {
-        setIsPro(!!snapshot.data().is_pro)
+        setIsProStorage(!!snapshot.data().is_pro)
       } else {
-        setIsPro(false)
+        setIsProStorage(false)
       }
     }, (error) => {
       console.warn('Plan listener error:', error.message)
@@ -45,7 +46,7 @@ export function PlanProvider({ children }) {
         plan_tier: 'master',
         updated_at: new Date().toISOString()
       });
-      setIsPro(true);
+      setIsProStorage(true);
       return true;
     } catch (err) {
       console.error('[PlanContext] Upgrade failed:', err.message);
@@ -55,7 +56,7 @@ export function PlanProvider({ children }) {
 
   const downgradePlanFallback = async () => {
     if (!user?.uid) return
-    setIsPro(false)
+    setIsProStorage(false)
     try {
       await updateDoc(doc(db, 'profiles', user.uid), { is_pro: false })
     } catch (err) {
@@ -69,7 +70,7 @@ export function PlanProvider({ children }) {
     try {
       const docSnap = await getDoc(doc(db, 'profiles', user.uid))
       if (docSnap.exists()) {
-        setIsPro(!!docSnap.data().is_pro)
+        setIsProStorage(!!docSnap.data().is_pro)
       }
     } catch (err) {
       console.error('Refresh plan error:', err.message)

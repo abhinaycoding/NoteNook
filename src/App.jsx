@@ -16,6 +16,7 @@ import PublicProfilePage from './pages/PublicProfilePage'
 import ProfileCustomizerPage from './pages/ProfileCustomizerPage'
 import AdminDashboard from './pages/AdminDashboard'
 import SettingsPage from './pages/SettingsPage'
+import LeaderboardPage from './pages/LeaderboardPage'
 import CustomCursor from './components/CustomCursor'
 import ProGate from './components/ProGate'
 import ZenMode from './components/ZenMode'
@@ -61,7 +62,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState('landing')
   const [activeRoomId, setActiveRoomId] = useState(null)
   const [activeRoomName, setActiveRoomName] = useState('')
-  const { user, profile, profileReady, loading: authLoading } = useAuth()
+  const { user, profile, profileReady, loading: authLoading, isAdmin } = useAuth()
   const { isDark, toggle, theme, setThemeById, themes } = useTheme()
   const { language, setLanguage, languages } = useTranslation()
   const [themePanelOpen, setThemePanelOpen] = useState(false)
@@ -118,11 +119,13 @@ function App() {
             </ProtectedRoute>
           )}
 
-          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'customize', 'admin', 'settings'].includes(pageToRender)) && (
-            <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
-              {pageToRender === 'admin' ? (
+          {(['dashboard', 'library', 'analytics', 'goals', 'calendar', 'rooms', 'room', 'exams', 'resume', 'profile', 'customize', 'admin', 'settings', 'leaderboard'].includes(pageToRender)) && (
+            pageToRender === 'admin' ? (
+              <AdminRoute user={user} profile={profile} isAdmin={isAdmin} profileReady={profileReady} onRedirect={navigateTo}>
                 <AdminDashboard onNavigate={navigateTo} />
-              ) : (
+              </AdminRoute>
+            ) : (
+              <ProtectedRoute user={user} profile={profile} profileReady={profileReady} currentPage={pageToRender} onRedirect={navigateTo}>
                 <Layout onNavigate={navigateTo} activeTab={pageToRender} fullBleed={pageToRender === 'room'}>
 
                 {pageToRender === 'dashboard' && <Dashboard onNavigate={navigateTo} />}
@@ -158,9 +161,12 @@ function App() {
                 {pageToRender === 'settings' && (
                   <SettingsPage onNavigate={navigateTo} />
                 )}
+                {pageToRender === 'leaderboard' && (
+                  <LeaderboardPage onNavigate={navigateTo} />
+                )}
               </Layout>
-              )}
-            </ProtectedRoute>
+              </ProtectedRoute>
+            )
           )}
         </div>
 
