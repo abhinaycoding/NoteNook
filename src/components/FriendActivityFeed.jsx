@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { db } from '../lib/firebase'
-import { collection, query, where, getDocs, onSnapshot, limit } from 'firebase/firestore'
+import { collection, query, where, getDocs, getDoc, doc, onSnapshot, orderBy, limit } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
 import './FriendActivityFeed.css'
 
@@ -15,98 +15,58 @@ const timeAgo = (timestamp) => {
 }
 
 const FriendActivityFeed = () => {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user?.uid) return
 
-    const fetchActivities = async () => {
+    const fetchActivities = async (friendIds) => {
+      if (friendIds.length === 0) {
+        setActivities([])
+        setLoading(false)
+        return
+      }
+
       try {
-        // Get accepted friends
-        const [sentSnap, receivedSnap] = await Promise.all([
-          getDocs(query(
-            collection(db, 'friend_requests'),
-            where('from', '==', user.uid),
-            where('status', '==', 'accepted')
-          )),
-          getDocs(query(
-            collection(db, 'friend_requests'),
-            where('to', '==', user.uid),
-            where('status', '==', 'accepted')
-          ))
-        ])
-
-        const friendIds = [
-          ...sentSnap.docs.map(d => d.data().to),
-          ...receivedSnap.docs.map(d => d.data().from),
-        ]
-
-        if (friendIds.length === 0) {
-          setActivities([])
-          setLoading(false)
-          return
-        }
-
-        // Chunk friend IDs into groups of 10 (Firestore 'in' limit)
-        const chunks = []
-        for (let i = 0; i < friendIds.length; i += 10) {
-          chunks.push(friendIds.slice(i, i + 10))
-        }
-
-        // Fetch profiles for names
-        const profileSnaps = await Promise.all(
-          chunks.map(chunk => getDocs(query(collection(db, 'profiles'), where('id', 'in', chunk))))
+        // ── Fetch profiles by document ID (not a field called 'id') ──
+        const profileDocs = await Promise.all(
+          friendIds.map(uid => getDoc(doc(db, 'profiles', uid)))
         )
         const profileMap = {}
-        profileSnaps.forEach(snap => snap.docs.forEach(d => { profileMap[d.id] = d.data() }))
+        profileDocs.forEach(d => { if (d.exists()) profileMap[d.id] = d.data() })
 
-        // Fetch recent tasks
-        const taskSnaps = await Promise.all(
-          chunks.map(chunk => getDocs(query(
+        // ── Fetch completed tasks in chunks of 10 (Firestore 'in' limit) ──
+        const all = []
+        const chunks = []
+        for (let i = 0; i < friendIds.length; i += 10) chunks.push(friendIds.slice(i, i + 10))
+
+        for (const chunk of chunks) {
+          const snap = await getDocs(query(
             collection(db, 'tasks'),
             where('user_id', 'in', chunk),
             where('completed', '==', true),
-            limit(20)
-          )))
-        )
-        const recentTasks = taskSnaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data(), _type: 'task' })))
+            orderBy('completed_at', 'desc'),
+            limit(30)
+          ))
+          snap.docs.forEach(d => {
+            const t = { id: d.id, ...d.data() }
+            all.push({
+              id:        t.id,
+              userId:    t.user_id,
+              name:      profileMap[t.user_id]?.full_name || 'A friend',
+              photo:     profileMap[t.user_id]?.photo_url || null,
+              emoji:     profileMap[t.user_id]?.avatar_emoji || null,
+              action:    'completed a task',
+              detail:    t.title,
+              timestamp: t.completed_at,
+              icon:      '✅',
+            })
+          })
+        }
 
-        // Fetch recent sessions
-        const sessionSnaps = await Promise.all(
-          chunks.map(chunk => getDocs(query(
-            collection(db, 'sessions'),
-            where('user_id', 'in', chunk),
-            where('completed', '==', true),
-            limit(20)
-          )))
-        )
-        const recentSessions = sessionSnaps.flatMap(snap => snap.docs.map(d => ({ id: d.id, ...d.data(), _type: 'session' })))
-
-        // Build activity list
-        const all = [
-          ...recentTasks.map(t => ({
-            id: t.id,
-            userId: t.user_id,
-            name: profileMap[t.user_id]?.full_name || 'A friend',
-            action: `completed a task`,
-            detail: t.title,
-            timestamp: t.updated_at,
-            emoji: '✅',
-          })),
-          ...recentSessions.map(s => ({
-            id: s.id,
-            userId: s.user_id,
-            name: profileMap[s.user_id]?.full_name || 'A friend',
-            action: `completed a focus session`,
-            detail: `${Math.round((s.duration_seconds || 0) / 60)} min`,
-            timestamp: s.created_at,
-            emoji: '⏱️',
-          }))
-        ]
-
-        // Sort by most recent
+        // Sort newest first
         all.sort((a, b) => {
           const ta = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp || 0)
           const tb = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp || 0)
@@ -121,7 +81,20 @@ const FriendActivityFeed = () => {
       }
     }
 
-    fetchActivities()
+    // ── Listen for friend list changes in real time ──
+    const q1 = query(collection(db, 'friend_requests'), where('from', '==', user.uid), where('status', '==', 'accepted'))
+    const q2 = query(collection(db, 'friend_requests'), where('to',   '==', user.uid), where('status', '==', 'accepted'))
+
+    let sentIds = [], receivedIds = []
+    const rebuild = () => {
+      const ids = [...new Set([...sentIds, ...receivedIds])]
+      fetchActivities(ids)
+    }
+
+    const u1 = onSnapshot(q1, snap => { sentIds = snap.docs.map(d => d.data().to);   rebuild() })
+    const u2 = onSnapshot(q2, snap => { receivedIds = snap.docs.map(d => d.data().from); rebuild() })
+
+    return () => { u1(); u2() }
   }, [user?.uid])
 
   if (loading) {
