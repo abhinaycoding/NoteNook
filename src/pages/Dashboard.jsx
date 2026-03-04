@@ -13,6 +13,7 @@ import OnboardingTour from '../components/OnboardingTour'
 import DangerZone from '../components/DangerZone'
 import MobileBottomNav from '../components/MobileBottomNav'
 import StreakFlame from '../components/StreakFlame'
+import FriendActivityFeed from '../components/FriendActivityFeed'
 import XPBar from '../components/XPBar'
 import DailyScore from '../components/DailyScore'
 import { db } from '../lib/firebase'
@@ -191,7 +192,12 @@ const Dashboard = ({ onNavigate }) => {
           </div>
         </div>
 
-        <main className="canvas-main" style={{ marginTop: '2.5rem', paddingBottom: '5rem' }}>
+        {/* Friends Activity — appears right below the daily quote */}
+        <div style={{ marginTop: '1.5rem' }}>
+          <FriendActivityFeed />
+        </div>
+
+        <main className="canvas-main" style={{ marginTop: '1.5rem', paddingBottom: '5rem' }}>
           <DangerZone />
           <DraggableDashboard 
             onNavigate={onNavigate}
