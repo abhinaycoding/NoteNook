@@ -18,6 +18,15 @@
       ]
     },
     {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "user_id", "order": "ASCENDING" },
+        { "fieldPath": "completed", "order": "ASCENDING" },
+        { "fieldPath": "completed_at", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "room_messages",
       "queryScope": "COLLECTION",
       "fields": [
