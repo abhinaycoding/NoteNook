@@ -5,10 +5,12 @@ import {
   addDoc, setDoc, doc, getDoc, serverTimestamp, orderBy, documentId
 } from 'firebase/firestore'
 import { useAuth } from '../contexts/AuthContext'
+import { usePlan } from '../contexts/PlanContext'
 import './DirectMessages.css'
 
 const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
   const { user, profile } = useAuth()
+  const { isPro } = usePlan()
   const [friends, setFriends] = useState([])
   const [unreadDMs, setUnreadDMs] = useState(new Set())
   const [lastMsgMap, setLastMsgMap] = useState({}) // uid -> { text, time }
@@ -58,15 +60,20 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
         })
 
         try {
-          // ── Also get accepted friend UIDs
-          const [sentSnap, receivedSnap] = await Promise.all([
+          // ── Also get accepted friend UIDs (handle both from/to and from_uid/to_uid for backward compatibility)
+          const [s1, s2, s3, s4] = await Promise.all([
             getDocs(query(collection(db, 'friend_requests'), where('from_uid', '==', user.uid), where('status', '==', 'accepted'))),
-            getDocs(query(collection(db, 'friend_requests'), where('to_uid', '==', user.uid), where('status', '==', 'accepted')))
+            getDocs(query(collection(db, 'friend_requests'), where('to_uid', '==', user.uid), where('status', '==', 'accepted'))),
+            getDocs(query(collection(db, 'friend_requests'), where('from', '==', user.uid), where('status', '==', 'accepted'))),
+            getDocs(query(collection(db, 'friend_requests'), where('to', '==', user.uid), where('status', '==', 'accepted')))
           ])
+          
           const friendIds = [
-            ...sentSnap.docs.map(d => d.data().to_uid),
-            ...receivedSnap.docs.map(d => d.data().from_uid),
-          ].filter(id => !!id)
+            ...s1.docs.map(d => d.data().to_uid || d.id.split('_').find(id => id !== user.uid)),
+            ...s2.docs.map(d => d.data().from_uid || d.id.split('_').find(id => id !== user.uid)),
+            ...s3.docs.map(d => d.data().to || d.id.split('_').find(id => id !== user.uid)),
+            ...s4.docs.map(d => d.data().from || d.id.split('_').find(id => id !== user.uid)),
+          ].filter(id => !!id && id !== user.uid)
 
           // ── Combine: recent chats first, then friends without a chat
           const allTargetIds = [...new Set([...recentUids, ...friendIds])]
@@ -189,7 +196,7 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
   }
 
   const handleImageClick = () => {
-    if (!profile?.is_pro) {
+    if (!isPro) {
       alert("Image sharing is a Pro feature! Please upgrade to send images.")
       return
     }
@@ -367,9 +374,9 @@ const DirectMessages = ({ isOpen, onClose, onUnreadChange, initialFriend }) => {
                   <div ref={messagesEndRef} />
                 </div>
                 <form className="dm-input-row" onSubmit={sendMessage}>
-                  <button type="button" className="dm-attach-btn" onClick={handleImageClick} title={profile?.is_pro ? "Send Image" : "Image Sharing (Pro)"}>
+                  <button type="button" className="dm-attach-btn" onClick={handleImageClick} title={isPro ? "Send Image" : "Image Sharing (Pro)"}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                    {!profile?.is_pro && <div className="dm-pro-lock"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM8.9 6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2H8.9V6zM18 20H6V10h12v10z"/></svg></div>}
+                    {!isPro && <div className="dm-pro-lock"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM8.9 6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2H8.9V6zM18 20H6V10h12v10z"/></svg></div>}
                   </button>
                   <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageUpload} />
                   

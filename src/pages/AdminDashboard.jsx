@@ -463,12 +463,46 @@ const AdminDashboard = ({ onNavigate }) => {
                   </div>
                 </div>
 
-                <div className="admin-panel">
+                <div className="admin-panel mt-6">
                   <div className="admin-panel-header">
-                    <h2 className="admin-panel-title">Platform Intelligence Overview</h2>
+                    <h2 className="admin-panel-title">Recent Transactions</h2>
                   </div>
-                  <div className="p-8 opacity-50 italic text-center">
-                    Select a category from the sidebar to manage specific platform operations.
+                  <div className="admin-table-container">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th align="left">USER</th>
+                          <th align="left">EMAIL</th>
+                          <th align="center">AMOUNT</th>
+                          <th align="center">PROMO</th>
+                          <th align="right">DATE</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payments.slice(0, 10).map(p => (
+                          <tr key={p.id}>
+                            <td align="left" className="font-bold">{p.userName || 'Scholar'}</td>
+                            <td align="left" className="opacity-50 text-xs">{p.userEmail || '—'}</td>
+                            <td align="center" className="text-primary font-bold">₹{p.amount}</td>
+                            <td align="center">
+                              {p.promo_used ? (
+                                <span className="citadel-badge pro" style={{ fontSize: '10px' }}>{p.promo_used}</span>
+                              ) : (
+                                <span className="opacity-30">—</span>
+                              )}
+                            </td>
+                            <td align="right" className="text-xs opacity-50">
+                              {p.timestamp?.toDate ? p.timestamp.toDate().toLocaleString() : 'Just now'}
+                            </td>
+                          </tr>
+                        ))}
+                        {payments.length === 0 && (
+                          <tr>
+                            <td colSpan="5" className="text-center py-8 opacity-50">No recent transactions found.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
