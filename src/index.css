@@ -428,6 +428,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   position: relative;
+  scrollbar-gutter: stable;
 }
 
 ::selection {

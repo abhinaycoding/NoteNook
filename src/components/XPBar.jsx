@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../contexts/AuthContext'
 import './XPBar.css'
 
@@ -95,6 +96,15 @@ const BadgeToast = ({ badge, onDone }) => {
 
 // ── Badges Modal ──────────────────────────────────────────────────────────────
 const BadgesModal = ({ onClose, xp, stats, earnedBadgeIds }) => {
+  useEffect(() => {
+    // Lock body and main container scroll
+    const containers = [document.body, document.documentElement, document.querySelector('.page-overflow-container')]
+    containers.forEach(c => { if(c) c.style.overflow = 'hidden' })
+    return () => { 
+      containers.forEach(c => { if(c) c.style.overflow = '' })
+    }
+  }, [])
+
   const level = getLevel(xp)
   const nextLevel = LEVELS[level.index + 1]
   const xpInLevel = xp - level.minXP
@@ -104,7 +114,7 @@ const BadgesModal = ({ onClose, xp, stats, earnedBadgeIds }) => {
   const earnedBadges = ALL_BADGES.filter(b => earnedBadgeIds.includes(b.id))
   const lockedBadges = ALL_BADGES.filter(b => !earnedBadgeIds.includes(b.id))
 
-  return (
+  return createPortal(
     <div className="badges-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="badges-modal">
         <button className="badges-modal-close" onClick={onClose}>✕</button>
@@ -176,7 +186,8 @@ const BadgesModal = ({ onClose, xp, stats, earnedBadgeIds }) => {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
