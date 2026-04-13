@@ -40,6 +40,7 @@
 
 /* ── Dark Mode Overrides ── */
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg-color: #141210;
   --bg-card: #1E1B18;
   --bg-card-rgb: 30, 27, 24;
@@ -60,6 +61,7 @@
 
 /* ── Midnight Theme ── */
 [data-theme="midnight"] {
+  color-scheme: dark;
   --bg-color: #0F1729;
   --bg-card: #162040;
   --bg-card-rgb: 22, 32, 64;
@@ -83,6 +85,7 @@
 
 /* ── Forest Theme ── */
 [data-theme="forest"] {
+  color-scheme: dark;
   --bg-color: #0D1B0F;
   --bg-card: #142418;
   --bg-card-rgb: 20, 36, 24;
@@ -106,6 +109,7 @@
 
 /* ── Rosewood Theme ── */
 [data-theme="rosewood"] {
+  color-scheme: dark;
   --bg-color: #1C1018;
   --bg-card: #281620;
   --bg-card-rgb: 40, 22, 32;
@@ -417,6 +421,36 @@ input, textarea, select {
   font-family: inherit;
   color: var(--text-primary);
   background-color: transparent;
+}
+
+option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.priority-select,
+.subject-select {
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.priority-select:hover,
+.subject-select:hover {
+  border-color: var(--primary);
+}
+
+.priority-select option,
+.subject-select option {
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 body {
