@@ -15,6 +15,17 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 900) {
+        setMobileMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize, { passive: true })
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const scrollTo = (id) => {
     const el = document.getElementById(id)
     if (el) {
@@ -24,19 +35,18 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
 
   const handleOpenApp = () => {
     onNavigate(user ? 'dashboard' : 'auth')
+    setMobileMenuOpen(false)
   }
 
   return (
     <header className={`editorial-nav ${scrolled ? 'nav-borders' : ''}`}>
       <div className="container nav-container">
 
-        {/* Left: Branding */}
         <div className="nav-brand" onClick={() => onNavigate('landing')}>
           <div className="logo-mark font-serif">NN.</div>
           <span className="logo-type uppercase tracking-widest text-xs font-bold">NoteNook</span>
         </div>
 
-        {/* Center: Links */}
         {!isAuthPage && (
           <nav className="nav-menu">
             <button className="nav-item" onClick={() => scrollTo('manifesto')}>{t('nav.manifesto')}</button>
@@ -45,30 +55,30 @@ const Navigation = ({ onNavigate, isAuthPage }) => {
           </nav>
         )}
 
-        {/* Right: Actions */}
         {!isAuthPage && (
           <div className="nav-actions">
             <button className="btn-primary" onClick={handleOpenApp}>
               {user ? t('nav.openApp') : 'Log In / Sign Up'}
             </button>
-            <button 
-              className="mobile-nav-hamburger" 
+            <button
+              className={`mobile-nav-hamburger ${mobileMenuOpen ? 'is-open' : ''}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             >
-              {mobileMenuOpen ? '×' : '☰'}
+              {mobileMenuOpen ? 'Close' : 'Menu'}
             </button>
           </div>
         )}
 
       </div>
 
-      {/* Mobile Dropdown */}
       {!isAuthPage && mobileMenuOpen && (
         <div className="mobile-dropdown-menu">
-          <button className="nav-item" onClick={() => { scrollTo('manifesto'); setMobileMenuOpen(false); }}>{t('nav.manifesto')}</button>
-          <button className="nav-item" onClick={() => { scrollTo('tools'); setMobileMenuOpen(false); }}>{t('nav.theTools')}</button>
-          <button className="nav-item" onClick={() => { scrollTo('subscribe'); setMobileMenuOpen(false); }}>{t('nav.subscribe')}</button>
-          <button className="nav-item" onClick={() => { handleOpenApp(); setMobileMenuOpen(false); }}>
+          <button className="nav-item" onClick={() => { scrollTo('manifesto'); setMobileMenuOpen(false) }}>{t('nav.manifesto')}</button>
+          <button className="nav-item" onClick={() => { scrollTo('tools'); setMobileMenuOpen(false) }}>{t('nav.theTools')}</button>
+          <button className="nav-item" onClick={() => { scrollTo('subscribe'); setMobileMenuOpen(false) }}>{t('nav.subscribe')}</button>
+          <button className="nav-item" onClick={handleOpenApp}>
             {user ? t('nav.dashboard') : 'Log In / Sign Up'}
           </button>
         </div>

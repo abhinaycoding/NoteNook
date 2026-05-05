@@ -10,6 +10,7 @@ import {
   updateProfile
 } from 'firebase/auth'
 import Navigation from '../components/Navigation'
+import { trackEvent } from '../lib/analytics'
 import './AuthPage.css'
 
 const AuthPage = ({ onNavigate }) => {
@@ -27,7 +28,12 @@ const AuthPage = ({ onNavigate }) => {
       try {
         const result = await getRedirectResult(auth)
         if (result) {
-          // Success is handled by onAuthStateChanged in AuthContext
+          if (result?._tokenResponse?.isNewUser) {
+            void trackEvent('signup_complete', {
+              method: 'google_redirect',
+              userId: result.user?.uid || null,
+            })
+          }
         }
       } catch (err) {
         console.error('Redirect result error:', err)
@@ -41,6 +47,8 @@ const AuthPage = ({ onNavigate }) => {
     setLoading(true)
     setErrorMsg('')
     try {
+      void trackEvent('signup_start', { method: 'google' })
+
       const provider = new GoogleAuthProvider()
       // Detect if we are on a mobile device or PWA standalone
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
@@ -50,7 +58,13 @@ const AuthPage = ({ onNavigate }) => {
         // Redirect is safer for iOS PWAs and Mobile Safari pop-up blockers
         await signInWithRedirect(auth, provider)
       } else {
-        await signInWithPopup(auth, provider)
+        const result = await signInWithPopup(auth, provider)
+        if (result?._tokenResponse?.isNewUser) {
+          void trackEvent('signup_complete', {
+            method: 'google_popup',
+            userId: result.user?.uid || null,
+          })
+        }
       }
     } catch (err) {
       setErrorMsg(err.message)
@@ -70,9 +84,11 @@ const AuthPage = ({ onNavigate }) => {
 
       if (isSignUp) {
         if (!normalizedName) throw new Error('Full name is required.')
+        void trackEvent('signup_start', { method: 'email' })
 
         const { user } = await createUserWithEmailAndPassword(auth, normalizedEmail, password)
         await updateProfile(user, { displayName: normalizedName })
+        void trackEvent('signup_complete', { method: 'email', userId: user?.uid || null })
 
         setSuccessMsg('Account created. Redirecting...')
       } else {

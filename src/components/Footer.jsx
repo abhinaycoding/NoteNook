@@ -17,7 +17,7 @@ const Footer = () => {
               {t('footer.tagline')}
             </p>
           </div>
-          
+
           <div className="footer-links-container">
             <div className="footer-column">
               <h4 className="footer-heading">{t('footer.legal')}</h4>
@@ -26,7 +26,7 @@ const Footer = () => {
                 <li><button type="button" onClick={() => setActiveModal('Guidelines')} style={{ cursor: 'pointer', textAlign: 'left', padding: 0 }}>{t('footer.guidelines')}</button></li>
               </ul>
             </div>
-            
+
             <div className="footer-column">
               <h4 className="footer-heading">{t('footer.access')}</h4>
               <ul className="footer-links text-sm font-medium">
@@ -34,7 +34,7 @@ const Footer = () => {
                 <li><a href="#subscribe">{t('footer.scholarPro')}</a></li>
               </ul>
             </div>
-            
+
             <div className="footer-column">
               <h4 className="footer-heading">{t('footer.connect')}</h4>
               <ul className="footer-links text-sm font-medium">
@@ -45,17 +45,17 @@ const Footer = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="footer-bottom border-t border-ink flex justify-between items-center py-6 mt-16 text-xs uppercase tracking-widest font-bold text-muted">
-          <div>© {new Date().getFullYear()} NoteNook Publishing</div>
+          <div>{`\u00A9 ${new Date().getFullYear()} NoteNook Publishing`}</div>
           <a href="mailto:abhinaycoding@gmail.com" className="hover-text-primary transition-colors">abhinaycoding@gmail.com</a>
         </div>
       </div>
-      
-      <LegalModal 
-        isOpen={activeModal !== null} 
-        title={activeModal} 
-        onClose={() => setActiveModal(null)} 
+
+      <LegalModal
+        isOpen={activeModal !== null}
+        title={activeModal}
+        onClose={() => setActiveModal(null)}
       />
     </footer>
   )

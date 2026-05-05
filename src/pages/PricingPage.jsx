@@ -6,6 +6,7 @@ import { usePlan } from '../contexts/PlanContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTranslation } from '../contexts/LanguageContext';
 import { createRazorpayOrder, openRazorpayCheckout, verifyRazorpayPayment } from '../lib/razorpay';
+import { trackEvent } from '../lib/analytics';
 import './PricingPage.css';
 
 const PricingPage = ({ onNavigate }) => {
@@ -63,6 +64,10 @@ const PricingPage = ({ onNavigate }) => {
 
   const handleUpgrade = async () => {
     if (!user) {
+      void trackEvent('upgrade_click', {
+        plan_id: 'master',
+        requires_auth: true
+      });
       onNavigate('auth');
       return;
     }
@@ -70,6 +75,12 @@ const PricingPage = ({ onNavigate }) => {
     if (isPro) return;
 
     const finalAmount = calculateTotal();
+    void trackEvent('upgrade_click', {
+      plan_id: 'master',
+      amount_inr: finalAmount,
+      promo_code: appliedPromo?.code || null,
+      userId: user.uid
+    });
     setLoading(true);
 
     try {
@@ -107,6 +118,13 @@ const PricingPage = ({ onNavigate }) => {
         await upgradePlan();
         await refreshPlan();
       }
+
+      void trackEvent('upgrade_complete', {
+        plan_id: 'master',
+        amount_inr: finalAmount,
+        promo_code: appliedPromo?.code || null,
+        userId: user.uid
+      });
 
       toast(t('pricing.successMsg') || 'Welcome to the Master tier! All features unlocked. 🎉', 'success');
     } catch (err) {
@@ -329,3 +347,4 @@ const PricingPage = ({ onNavigate }) => {
 };
 
 export default PricingPage;
+
